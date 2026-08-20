@@ -5,8 +5,18 @@ FPS = 60
 
 TITLE = "Veggie Quest: Rescue at Snackland"
 
-# Colors
+WORLD_WIDTH = 10000
+
 SKY_BLUE = (135, 206, 235)
 GROUND_GREEN = (80, 180, 80)
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
+
+# Player physics
+PLAYER_SPEED = 5
+PLAYER_GRAVITY = 0.8
+PLAYER_JUMP_STRENGTH = -14
+
+# Level design limits
+MAX_JUMP_HORIZONTAL = 500
+MAX_JUMP_VERTICAL = 125
