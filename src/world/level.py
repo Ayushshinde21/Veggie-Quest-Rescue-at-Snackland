@@ -1,4 +1,5 @@
 import pygame
+import random
 
 from src.settings import HEIGHT, WORLD_WIDTH
 from src.entities.player import Player
@@ -9,7 +10,23 @@ from src.world.platform_generator import PlatformGenerator
 
 class Level:
 
-    def __init__(self):
+    def __init__(self, seed=None):
+
+        # ==========================================
+        # LEVEL SEED
+        # ==========================================
+
+        # If no seed is provided, generate a random one
+        if seed is None:
+            seed = random.randint(
+                0,
+                999999999
+            )
+
+        self.seed = seed
+
+        # Make random generation reproducible
+        random.seed(self.seed)
 
         # ==========================================
         # WORLD
