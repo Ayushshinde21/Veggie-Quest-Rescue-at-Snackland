@@ -1,60 +1,99 @@
 import pygame
 
-from src.settings import WIDTH, HEIGHT, FPS, TITLE
+from src.settings import (
+    WIDTH,
+    HEIGHT,
+    FPS,
+    TITLE,
+    SKY_BLUE,
+    GROUND_GREEN,
+    WHITE,
+    BLACK
+)
+
+from src.entities.game_object import GameObject
 
 
 class Game:
 
     def __init__(self):
-        # Initialize pygame
+
         pygame.init()
 
-        # Create game window
         self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
 
-        # Set window title
         pygame.display.set_caption(TITLE)
 
-        # Create clock
         self.clock = pygame.time.Clock()
 
-        # Controls whether the game is running
         self.running = True
+
+        # Font for FPS
+        self.font = pygame.font.Font(None, 28)
+
+        # Create ground
+        self.ground = GameObject(
+            0,
+            HEIGHT - 80,
+            WIDTH,
+            80
+        )
 
     def handle_events(self):
 
         for event in pygame.event.get():
 
-            # Close button
             if event.type == pygame.QUIT:
                 self.running = False
 
+            # Press ESC to exit
+            if event.type == pygame.KEYDOWN:
+
+                if event.key == pygame.K_ESCAPE:
+                    self.running = False
+
     def update(self):
-        # Game logic will go here later
-        pass
+
+        self.ground.update()
 
     def draw(self):
-        # Fill screen with background color
-        self.screen.fill((135, 206, 235))
 
-        # Update display
+        # Background
+        self.screen.fill(SKY_BLUE)
+
+        # Draw ground
+        pygame.draw.rect(
+            self.screen,
+            GROUND_GREEN,
+            self.ground.rect
+        )
+
+        # FPS
+        fps = int(self.clock.get_fps())
+
+        fps_text = self.font.render(
+            f"FPS: {fps}",
+            True,
+            BLACK
+        )
+
+        self.screen.blit(
+            fps_text,
+            (10, 10)
+        )
+
         pygame.display.flip()
 
     def run(self):
 
         while self.running:
 
-            # 1. Handle keyboard/mouse/window events
             self.handle_events()
 
-            # 2. Update game objects
             self.update()
 
-            # 3. Draw everything
             self.draw()
 
-            # Keep game running at 60 FPS
             self.clock.tick(FPS)
 
-        # Close pygame
         pygame.quit()
