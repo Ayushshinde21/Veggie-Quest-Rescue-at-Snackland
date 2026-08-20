@@ -12,7 +12,7 @@ from src.settings import (
 )
 
 from src.entities.game_object import GameObject
-
+from src.entities.player import Player
 
 class Game:
 
@@ -39,6 +39,12 @@ class Game:
             80
         )
 
+        # Create player
+        self.player = Player(
+            100,
+            HEIGHT - 200
+        )
+
     def handle_events(self):
 
         for event in pygame.event.get():
@@ -46,15 +52,18 @@ class Game:
             if event.type == pygame.QUIT:
                 self.running = False
 
-            # Press ESC to exit
             if event.type == pygame.KEYDOWN:
 
                 if event.key == pygame.K_ESCAPE:
                     self.running = False
 
+                if event.key == pygame.K_SPACE:
+                    self.player.jump()
+
     def update(self):
 
         self.ground.update()
+        self.player.update(self.ground)
 
     def draw(self):
 
@@ -67,6 +76,8 @@ class Game:
             GROUND_GREEN,
             self.ground.rect
         )
+        # Draw player
+        self.player.draw(self.screen)
 
         # FPS
         fps = int(self.clock.get_fps())
