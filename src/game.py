@@ -11,8 +11,9 @@ from src.settings import (
     BLACK
 )
 
-from src.entities.game_object import GameObject
+from src.settings import WIDTH
 from src.entities.player import Player
+from src.entities.platform import Platform
 
 class Game:
 
@@ -32,12 +33,25 @@ class Game:
         self.font = pygame.font.Font(None, 28)
 
         # Create ground
-        self.ground = GameObject(
+        self.ground = Platform(
             0,
             HEIGHT - 80,
             WIDTH,
             80
         )
+        self.platforms = [
+
+            self.ground,
+
+            Platform(150, 400, 180),
+
+            Platform(430, 320, 180),
+
+            Platform(700, 240, 160),
+
+            Platform(500, 150, 150)
+        ]
+
 
         # Create player
         self.player = Player(
@@ -63,7 +77,7 @@ class Game:
     def update(self):
 
         self.ground.update()
-        self.player.update(self.ground)
+        self.player.update(self.platforms)
 
     def draw(self):
 
@@ -71,11 +85,9 @@ class Game:
         self.screen.fill(SKY_BLUE)
 
         # Draw ground
-        pygame.draw.rect(
-            self.screen,
-            GROUND_GREEN,
-            self.ground.rect
-        )
+        for platform in self.platforms:
+            platform.draw(self.screen)
+
         # Draw player
         self.player.draw(self.screen)
 

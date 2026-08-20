@@ -51,19 +51,41 @@ class Player(GameObject):
 
         self.rect.y += self.velocity_y
 
-    def update(self, ground):
+    def update(self, platforms):
 
+        # Store previous position
+        previous_rect = self.rect.copy()
+
+        # Horizontal movement
         self.handle_input()
 
+        # Keep player inside screen
+        if self.rect.left < 0:
+            self.rect.left = 0
+
+        if self.rect.right > 960:
+            self.rect.right = 960
+
+        # Apply gravity
         self.apply_gravity()
 
-        # Ground collision
-        if self.rect.colliderect(ground.rect):
-            self.rect.bottom = ground.rect.top
+        self.on_ground = False
 
-            self.velocity_y = 0
+        # Check collisions
+        for platform in platforms:
 
-            self.on_ground = True
+            if self.rect.colliderect(platform.rect):
+
+                # Falling onto platform
+                if (
+                        self.velocity_y >= 0
+                        and previous_rect.bottom <= platform.rect.top
+                ):
+                    self.rect.bottom = platform.rect.top
+
+                    self.velocity_y = 0
+
+                    self.on_ground = True
 
     def draw(self, screen):
 
