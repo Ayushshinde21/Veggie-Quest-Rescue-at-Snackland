@@ -1,0 +1,35 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="PyPackageRequirementsInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredPackages">
+        <list>
+          <option value="yt-dlp" />
+          <option value="ffmpeg-python" />
+          <option value="openai-whisper" />
+          <option value="langchain" />
+          <option value="langchain-community" />
+          <option value="langchain-huggingface" />
+          <option value="langchain-mistralai" />
+          <option value="chromadb" />
+          <option value="sentence-transformers" />
+          <option value="rank-bm25" />
+          <option value="mistralai" />
+          <option value="ragas" />
+          <option value="datasets" />
+          <option value="streamlit" />
+          <option value="python-dotenv" />
+          <option value="tqdm" />
+          <option value="numpy" />
+        </list>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="PyStubPackagesAdvertiser" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredPackages">
+        <list>
+          <option value="pandas-stubs==3.0.0.260204" />
+        </list>
+      </option>
+    </inspection_tool>
+  </profile>
+</component>

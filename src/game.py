@@ -6,14 +6,11 @@ from src.settings import (
     FPS,
     TITLE,
     SKY_BLUE,
-    GROUND_GREEN,
-    WHITE,
     BLACK
 )
 
-from src.settings import WIDTH
-from src.entities.player import Player
-from src.entities.platform import Platform
+from src.world.level import Level
+
 
 class Game:
 
@@ -21,7 +18,9 @@ class Game:
 
         pygame.init()
 
-        self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
+        self.screen = pygame.display.set_mode(
+            (WIDTH, HEIGHT)
+        )
 
         pygame.display.set_caption(TITLE)
 
@@ -29,70 +28,64 @@ class Game:
 
         self.running = True
 
-        # Font for FPS
-        self.font = pygame.font.Font(None, 28)
-
-        # Create ground
-        self.ground = Platform(
-            0,
-            HEIGHT - 80,
-            WIDTH,
-            80
+        self.font = pygame.font.Font(
+            None,
+            28
         )
-        self.platforms = [
 
-            self.ground,
+        # Create level
+        self.level = Level()
 
-            Platform(150, 400, 180),
-
-            Platform(430, 320, 180),
-
-            Platform(700, 240, 160),
-
-            Platform(500, 150, 150)
-        ]
-
-
-        # Create player
-        self.player = Player(
-            100,
-            HEIGHT - 200
-        )
+    # --------------------------------------------------
+    # EVENTS
+    # --------------------------------------------------
 
     def handle_events(self):
 
         for event in pygame.event.get():
 
             if event.type == pygame.QUIT:
+
                 self.running = False
 
             if event.type == pygame.KEYDOWN:
 
                 if event.key == pygame.K_ESCAPE:
+
                     self.running = False
 
                 if event.key == pygame.K_SPACE:
-                    self.player.jump()
+
+                    self.level.player.jump()
+
+    # --------------------------------------------------
+    # UPDATE
+    # --------------------------------------------------
 
     def update(self):
 
-        self.ground.update()
-        self.player.update(self.platforms)
+        self.level.update()
+
+    # --------------------------------------------------
+    # DRAW
+    # --------------------------------------------------
 
     def draw(self):
 
         # Background
-        self.screen.fill(SKY_BLUE)
+        self.screen.fill(
+            SKY_BLUE
+        )
 
-        # Draw ground
-        for platform in self.platforms:
-            platform.draw(self.screen)
-
-        # Draw player
-        self.player.draw(self.screen)
+        # Draw level
+        self.level.draw(
+            self.screen
+        )
 
         # FPS
-        fps = int(self.clock.get_fps())
+        fps = int(
+            self.clock.get_fps()
+        )
 
         fps_text = self.font.render(
             f"FPS: {fps}",
@@ -106,6 +99,10 @@ class Game:
         )
 
         pygame.display.flip()
+
+    # --------------------------------------------------
+    # GAME LOOP
+    # --------------------------------------------------
 
     def run(self):
 
