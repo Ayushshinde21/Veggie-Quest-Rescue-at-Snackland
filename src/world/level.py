@@ -8,6 +8,7 @@ from src.entities.collectible import Collectible
 from src.entities.checkpoint import Checkpoint
 from src.world.camera import Camera
 from src.world.platform_generator import PlatformGenerator
+from src.entities.enemy import Enemy
 
 
 class Level:
@@ -123,6 +124,18 @@ class Level:
             None,
             64
         )
+        # ==========================================
+        # ENEMIES
+        # ==========================================
+
+        self.enemies = []
+        self.generate_enemies()
+        # ==========================================
+        # ENEMY DAMAGE
+        # ==========================================
+
+        self.damage_cooldown = 0
+        self.damage_cooldown_max = 60
 
     # ==============================================
     # GENERATE COLLECTIBLES
@@ -254,6 +267,9 @@ class Level:
         if self.level_complete:
             return
 
+        if self.damage_cooldown > 0:
+            self.damage_cooldown -= 1
+
         # ------------------------------------------
         # PLAYER
         # ------------------------------------------
@@ -267,6 +283,15 @@ class Level:
         # ------------------------------------------
 
         self.check_player_death()
+
+        # ------------------------------------------
+        # HEALTH DEATH
+        # ------------------------------------------
+
+        if self.player.health <= 0:
+            self.respawn_player()
+
+            self.player.health = 3
 
         # ------------------------------------------
         # LEVEL COMPLETE
@@ -320,6 +345,13 @@ class Level:
                 self.current_checkpoint = (
                     checkpoint
                 )
+        # ------------------------------------------
+        # ENEMIES
+        # ------------------------------------------
+
+        for enemy in self.enemies:
+            enemy.update()
+        self.handle_enemy_collisions()
 
     # ==============================================
     # DRAW
@@ -468,6 +500,31 @@ class Level:
             screen,
             player_rect
         )
+        # ==========================================
+        # HEALTH
+        # ==========================================
+
+        health_text = self.font.render(
+            f"❤️ Health: {self.player.health}",
+            True,
+            (255, 255, 255)
+        )
+
+        health_shadow = self.font.render(
+            f"❤️ Health: {self.player.health}",
+            True,
+            (0, 0, 0)
+        )
+
+        screen.blit(
+            health_shadow,
+            (21, 61)
+        )
+
+        screen.blit(
+            health_text,
+            (20, 60)
+        )
 
         # ==========================================
         # SCORE
@@ -550,3 +607,429 @@ class Level:
                     )
                 )
             )
+        # ==========================================
+        # ENEMIES
+        # ==========================================
+
+        for enemy in self.enemies:
+            enemy.draw(
+                screen,
+                self.camera
+            )
+    # ==============================================
+    # GENERATE ENEMIES
+    # ==============================================
+
+    def generate_enemies(self):
+
+        self.enemies.clear()
+
+        # ==========================================
+        # GO THROUGH GENERATED PLATFORMS
+        # ==========================================
+
+        for platform in self.platforms[1:]:
+
+            width = platform.rect.width
+
+            # ======================================
+            # VERY SMALL PLATFORM
+            # ======================================
+
+            if width < 110:
+                # No enemy
+                continue
+
+            # ======================================
+            # ENEMY SPAWN CHANCE
+            # ======================================
+
+            # Start easier
+            difficulty = min(
+                platform.rect.x / self.width,
+                1.0
+            )
+
+            # Base chance
+            # ======================================
+            # ENEMY SPAWN CHANCE
+            # ======================================
+
+            # Difficulty increases across the world.
+
+            difficulty = min(
+                platform.rect.x / self.width,
+                1.0
+            )
+
+            # Start with a reasonable number of enemies
+            # and gradually increase them.
+
+            spawn_chance = (
+                    0.45
+                    + difficulty * 0.35
+            )
+
+            if random.random() > spawn_chance:
+                continue
+
+            # ======================================
+            # PATROL AREA
+            # ======================================
+
+            margin = 20
+
+            left_limit = (
+                    platform.rect.left
+                    + margin
+            )
+
+            right_limit = (
+                    platform.rect.right
+                    - margin
+            )
+
+            # ======================================
+            # CHOOSE ENEMY SIZE
+            # ======================================
+
+            if width >= 260:
+
+                possible_types = [
+                    "slime",
+                    "fast",
+                    "jumper",
+                    "flyer",
+                    "heavy"
+                ]
+
+            elif width >= 190:
+
+                possible_types = [
+                    "slime",
+                    "fast",
+                    "jumper",
+                    "flyer"
+                ]
+
+            elif width >= 140:
+
+                possible_types = [
+                    "slime",
+                    "fast",
+                    "jumper"
+                ]
+
+            else:
+
+                possible_types = [
+                    "slime",
+                    "fast"
+                ]
+
+            # ======================================
+            # RANDOM ENEMY TYPE
+            # ======================================
+
+            enemy_type = random.choice(
+                possible_types
+            )
+
+            # ======================================
+            # ENEMY SIZE
+            # ======================================
+
+            if enemy_type == "heavy":
+
+                enemy_width = 50
+                enemy_height = 50
+
+            else:
+
+                enemy_width = 32
+                enemy_height = 32
+
+            # ======================================
+            # CHECK SPACE
+            # ======================================
+
+            if (
+                    right_limit
+                    - left_limit
+                    < enemy_width
+            ):
+                continue
+
+            # ======================================
+            # RANDOM POSITION
+            # ======================================
+
+            x = random.randint(
+                left_limit,
+                right_limit - enemy_width
+            )
+
+            # ======================================
+            # ENEMY Y POSITION
+            # ======================================
+
+            y = (
+                    platform.rect.top
+                    - enemy_height
+            )
+
+            # ======================================
+            # SPEED
+            # ======================================
+
+            if enemy_type == "slime":
+
+                speed = 2
+
+            elif enemy_type == "fast":
+
+                speed = 3
+
+            elif enemy_type == "jumper":
+
+                speed = 2
+
+            elif enemy_type == "flyer":
+
+                speed = 2
+
+            elif enemy_type == "heavy":
+
+                speed = 1
+
+            else:
+
+                speed = 2
+
+            # ======================================
+            # CREATE ENEMY
+            # ======================================
+
+            enemy = Enemy(
+                x,
+                y,
+                left_limit,
+                right_limit,
+                speed,
+                enemy_type,
+                platform.rect.top
+            )
+
+            self.enemies.append(
+                enemy
+            )
+        # ==========================================
+        # GUARANTEE MINIMUM ENEMIES
+        # ==========================================
+
+        minimum_enemies = 8
+
+        if len(self.enemies) < minimum_enemies:
+
+            for platform in self.platforms[1:]:
+
+                if len(self.enemies) >= minimum_enemies:
+                    break
+
+                # Small platforms are skipped
+
+                if platform.rect.width < 100:
+                    continue
+
+                # ----------------------------------
+                # CHECK EXISTING ENEMY
+                # ----------------------------------
+
+                already_has_enemy = False
+
+                for enemy in self.enemies:
+
+                    if abs(
+                        enemy.rect.centerx
+                        - platform.rect.centerx
+                    ) < 100:
+
+                        already_has_enemy = True
+                        break
+
+                if already_has_enemy:
+                    continue
+
+                # ----------------------------------
+                # ENEMY TYPE
+                # ----------------------------------
+
+                enemy_type = random.choice([
+                    "slime",
+                    "fast"
+                ])
+
+                if enemy_type == "slime":
+                    speed = 2
+                else:
+                    speed = 3
+
+                enemy_width = 32
+
+                # ----------------------------------
+                # PATROL LIMITS
+                # ----------------------------------
+
+                margin = 20
+
+                left_limit = (
+                    platform.rect.left
+                    + margin
+                )
+
+                right_limit = (
+                    platform.rect.right
+                    - margin
+                )
+
+                # ----------------------------------
+                # CHECK SPACE
+                # ----------------------------------
+
+                if (
+                    right_limit
+                    - left_limit
+                    < enemy_width
+                ):
+                    continue
+
+                # ----------------------------------
+                # POSITION
+                # ----------------------------------
+
+                x = random.randint(
+                    left_limit,
+                    right_limit - enemy_width
+                )
+
+                y = (
+                    platform.rect.top
+                    - 32
+                )
+
+                # ----------------------------------
+                # CREATE ENEMY
+                # ----------------------------------
+
+                enemy = Enemy(
+                    x,
+                    y,
+                    left_limit,
+                    right_limit,
+                    speed,
+                    enemy_type,
+                    platform.rect.top
+                )
+
+                self.enemies.append(
+                    enemy
+                )
+
+    # ==============================================
+    # ENEMY COLLISION
+    # ==============================================
+
+    def handle_enemy_collisions(self):
+
+        for enemy in self.enemies:
+
+            if not enemy.alive:
+                continue
+
+            if not enemy.check_collision(
+                    self.player
+            ):
+                continue
+
+            # ======================================
+            # PLAYER LANDING ON ENEMY
+            # ======================================
+
+            player_bottom = self.player.rect.bottom
+
+            enemy_top = enemy.rect.top
+
+            # Player is falling
+            if (
+                    self.player.velocity_y > 0
+                    and player_bottom
+                    <= enemy_top + 15
+            ):
+
+                # ======================================
+                # STOMP ENEMY
+                # ======================================
+
+                if enemy.enemy_type == "heavy":
+
+                    # Heavy cannot be stomped
+
+                    if self.damage_cooldown <= 0:
+                        self.player.health -= 1
+
+                        self.damage_cooldown = (
+                            self.damage_cooldown_max
+                        )
+
+                        self.player.velocity_y = -5
+
+                else:
+
+                    # Normal enemies can be stomped
+
+                    enemy.alive = False
+
+                    self.player.rect.bottom = (
+                        enemy.rect.top
+                    )
+
+                    self.player.velocity_y = (
+                            self.player.jump_strength * 0.65
+                    )
+
+            # ======================================
+            # SIDE COLLISION
+            # ======================================
+
+            else:
+
+                if self.damage_cooldown > 0:
+                    continue
+
+                self.player.health = max(
+                    0,
+                    self.player.health - 1
+                )
+
+                self.damage_cooldown = (
+                    self.damage_cooldown_max
+                )
+
+                # Push player away
+                if (
+                        self.player.rect.centerx
+                        < enemy.rect.centerx
+                ):
+
+                    self.player.rect.right = (
+                        enemy.rect.left
+                    )
+
+                else:
+
+                    self.player.rect.left = (
+                        enemy.rect.right
+                    )
+
+                # Stop downward movement
+                self.player.velocity_y = -5

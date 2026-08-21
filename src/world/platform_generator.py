@@ -28,11 +28,14 @@ class PlatformGenerator:
         # ==========================================
 
         self.speed = PLAYER_SPEED
+
         self.gravity = PLAYER_GRAVITY
+
         self.jump_strength = abs(
             PLAYER_JUMP_STRENGTH
         )
 
+        # Maximum theoretical jump height
         self.max_jump_height = (
             self.jump_strength ** 2
             / (2 * self.gravity)
@@ -42,7 +45,28 @@ class PlatformGenerator:
         # LANDING TOLERANCE
         # ==========================================
 
-        self.landing_tolerance = 10
+        self.landing_tolerance = 15
+
+        # ==========================================
+        # JUMP LIMITS
+        # ==========================================
+
+        # Don't use the absolute maximum.
+        # Keep some safety margin.
+
+        self.safe_jump_height = (
+            self.max_jump_height * 0.85
+        )
+
+        self.max_jump_distance = 220
+
+        self.min_horizontal_gap = 35
+
+        # ==========================================
+        # PLATFORM SETTINGS
+        # ==========================================
+
+        self.minimum_platform_width = 60
 
     # ==============================================
     # DIFFICULTY
@@ -50,7 +74,9 @@ class PlatformGenerator:
 
     def get_difficulty(self, x):
 
-        progress = x / self.world_width
+        progress = (
+            x / self.world_width
+        )
 
         progress = max(
             0.0,
@@ -71,8 +97,16 @@ class PlatformGenerator:
         vertical_difference
     ):
 
+        # Equation:
+        #
+        # y = v*t + 1/2*g*t²
+        #
+        # We want the positive landing time.
+
         a = 0.5 * self.gravity
+
         b = -self.jump_strength
+
         c = -vertical_difference
 
         discriminant = (
@@ -81,6 +115,7 @@ class PlatformGenerator:
         )
 
         if discriminant < 0:
+
             return None
 
         sqrt_discriminant = math.sqrt(
@@ -95,10 +130,20 @@ class PlatformGenerator:
             -b - sqrt_discriminant
         ) / (2 * a)
 
-        return max(
-            time1,
-            time2
-        )
+        # We need the positive solution
+        # corresponding to the landing.
+
+        valid_times = [
+            t
+            for t in (time1, time2)
+            if t > 0
+        ]
+
+        if not valid_times:
+
+            return None
+
+        return max(valid_times)
 
     # ==============================================
     # REACHABILITY
@@ -112,43 +157,113 @@ class PlatformGenerator:
         next_width
     ):
 
-        vertical_difference = (
-            next_y
-            - current_platform.rect.y
+        current_top = (
+            current_platform.rect.top
         )
 
-        # Too high
+        # ------------------------------------------
+        # VERTICAL DIFFERENCE
+        # ------------------------------------------
+
+        vertical_difference = (
+            next_y
+            - current_top
+        )
+
+        # ------------------------------------------
+        # PLATFORM TOO HIGH
+        # ------------------------------------------
+
         if (
             -vertical_difference
-            > self.max_jump_height
+            > self.safe_jump_height
         ):
+
             return False
 
-        landing_time = self.get_landing_time(
-            vertical_difference
+        # ------------------------------------------
+        # PLATFORM TOO LOW
+        # ------------------------------------------
+
+        # Very large drops are avoided because
+        # they make the next landing unreliable.
+
+        if vertical_difference > 120:
+
+            return False
+
+        # ------------------------------------------
+        # LANDING TIME
+        # ------------------------------------------
+
+        landing_time = (
+            self.get_landing_time(
+                vertical_difference
+            )
         )
 
         if landing_time is None:
+
             return False
+
+        # ------------------------------------------
+        # HORIZONTAL DISTANCE PLAYER CAN TRAVEL
+        # ------------------------------------------
 
         reachable_distance = (
             self.speed
             * landing_time
         )
 
-        actual_gap = (
-            next_x
-            - current_platform.rect.right
-        )
+        # Add player's landing tolerance.
 
         reachable_distance += (
             self.landing_tolerance
         )
 
-        return (
-            actual_gap
-            <= reachable_distance
+        # ------------------------------------------
+        # ACTUAL GAP
+        # ------------------------------------------
+
+        current_right = (
+            current_platform.rect.right
         )
+
+        actual_gap = (
+            next_x
+            - current_right
+        )
+
+        # ------------------------------------------
+        # TOO FAR
+        # ------------------------------------------
+
+        if (
+            actual_gap
+            > self.max_jump_distance
+        ):
+
+            return False
+
+        if (
+            actual_gap
+            > reachable_distance
+        ):
+
+            return False
+
+        # ------------------------------------------
+        # NEGATIVE GAP
+        # ------------------------------------------
+
+        # Don't allow platforms to overlap in
+        # the normal generated sequence.
+
+        if actual_gap < self.min_horizontal_gap:
+
+            return False
+
+        return True
 
     # ==============================================
     # PLATFORM SIZE
@@ -168,7 +283,7 @@ class PlatformGenerator:
         )
 
         min_width = max(
-            60,
+            self.minimum_platform_width,
             min_width
         )
 
@@ -176,6 +291,10 @@ class PlatformGenerator:
             min_width + 10,
             max_width
         )
+
+        # ------------------------------------------
+        # GAP
+        # ------------------------------------------
 
         min_gap = int(
             90 + difficulty * 15
@@ -185,8 +304,27 @@ class PlatformGenerator:
             125 + difficulty * 20
         )
 
+        # Don't generate gaps beyond our
+        # maximum safe distance.
+
+        max_gap = min(
+            max_gap,
+            self.max_jump_distance
+        )
+
+        # ------------------------------------------
+        # HEIGHT CHANGE
+        # ------------------------------------------
+
         max_height_change = int(
             70 + difficulty * 20
+        )
+
+        # Keep height change within safe jump range.
+
+        max_height_change = min(
+            max_height_change,
+            int(self.safe_jump_height)
         )
 
         return (
@@ -222,9 +360,9 @@ class PlatformGenerator:
             difficulty
         )
 
-        # ------------------------------------------
-        # PATTERN: STAIRCASE
-        # ------------------------------------------
+        # ==========================================
+        # HEIGHT PATTERN
+        # ==========================================
 
         if pattern == "staircase":
 
@@ -233,20 +371,12 @@ class PlatformGenerator:
                 max_height_change
             )
 
-        # ------------------------------------------
-        # PATTERN: DESCENDING
-        # ------------------------------------------
-
         elif pattern == "descending":
 
             height_change = random.randint(
                 -max_height_change,
                 -40
             )
-
-        # ------------------------------------------
-        # PATTERN: ZIG-ZAG
-        # ------------------------------------------
 
         elif pattern == "zigzag":
 
@@ -261,10 +391,6 @@ class PlatformGenerator:
                 )
             ])
 
-        # ------------------------------------------
-        # PATTERN: HIGH-LOW
-        # ------------------------------------------
-
         elif pattern == "high_low":
 
             height_change = random.choice([
@@ -278,10 +404,6 @@ class PlatformGenerator:
                 )
             ])
 
-        # ------------------------------------------
-        # PATTERN: NORMAL
-        # ------------------------------------------
-
         else:
 
             height_change = random.randint(
@@ -289,28 +411,41 @@ class PlatformGenerator:
                 max_height_change
             )
 
-        # ------------------------------------------
-        # NEW POSITION
-        # ------------------------------------------
+        # ==========================================
+        # GAP
+        # ==========================================
 
         gap = random.randint(
             min_gap,
             max_gap
         )
 
+        # ==========================================
+        # WIDTH
+        # ==========================================
+
         width = random.randint(
             min_width,
             max_width
         )
+
+        # ==========================================
+        # POSITION
+        # ==========================================
 
         new_x = (
             current_platform.rect.right
             + gap
         )
 
-        new_y = current_y + height_change
+        new_y = (
+            current_y
+            + height_change
+        )
 
-        # Keep inside playable area
+        # ==========================================
+        # WORLD BOUNDARY
+        # ==========================================
 
         new_y = max(
             150,
@@ -320,9 +455,9 @@ class PlatformGenerator:
             )
         )
 
-        # ------------------------------------------
-        # REACHABILITY CHECK
-        # ------------------------------------------
+        # ==========================================
+        # REACHABILITY
+        # ==========================================
 
         if not self.can_reach_platform(
             current_platform,
@@ -330,7 +465,12 @@ class PlatformGenerator:
             new_y,
             width
         ):
+
             return None
+
+        # ==========================================
+        # CREATE PLATFORM
+        # ==========================================
 
         return Platform(
             new_x,
@@ -351,7 +491,10 @@ class PlatformGenerator:
         # ==========================================
 
         current_x = 100
-        current_y = HEIGHT - 160
+
+        current_y = (
+            HEIGHT - 160
+        )
 
         first_width = 250
 
@@ -365,10 +508,12 @@ class PlatformGenerator:
             first_platform
         )
 
-        current_platform = first_platform
+        current_platform = (
+            first_platform
+        )
 
         # ==========================================
-        # PATTERN LIST
+        # PATTERNS
         # ==========================================
 
         patterns = [
@@ -387,49 +532,62 @@ class PlatformGenerator:
             self.world_width - 400
         ):
 
-            # Choose a pattern
-
             pattern = random.choice(
                 patterns
             )
 
             platform_created = False
 
-            # Try several times
+            # ======================================
+            # RETRY
+            # ======================================
 
             for _ in range(100):
 
-                platform = self.try_create_platform(
-                    current_platform,
-                    current_y,
-                    pattern
+                platform = (
+                    self.try_create_platform(
+                        current_platform,
+                        current_y,
+                        pattern
+                    )
                 )
 
                 if platform is None:
+
                     continue
 
-                # Add platform
+                # ==================================
+                # ADD PLATFORM
+                # ==================================
 
                 platforms.append(
                     platform
                 )
 
-                # Update current platform
+                # ==================================
+                # UPDATE
+                # ==================================
 
                 current_platform = platform
 
-                current_x = platform.rect.x
-                current_y = platform.rect.y
+                current_x = (
+                    platform.rect.x
+                )
+
+                current_y = (
+                    platform.rect.y
+                )
 
                 platform_created = True
 
                 break
 
-            # --------------------------------------
+            # ======================================
             # SAFETY
-            # --------------------------------------
+            # ======================================
 
             if not platform_created:
+
                 break
 
         return platforms
