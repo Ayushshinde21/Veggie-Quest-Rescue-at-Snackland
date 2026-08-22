@@ -176,7 +176,12 @@ class Player(GameObject):
 
         if self.rect.right > WORLD_WIDTH:
             self.rect.right = WORLD_WIDTH
-
+        """print(
+            "PLAYER X:",
+            self.rect.x,
+            "WORLD WIDTH:",
+            WORLD_WIDTH
+        )"""
         self.apply_gravity()
 
         self.handle_platform_collision(

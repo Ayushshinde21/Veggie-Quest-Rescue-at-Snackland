@@ -275,11 +275,11 @@ class PlatformGenerator:
     ):
 
         min_width = int(
-            100 - difficulty * 15
+            130 - difficulty * 10
         )
 
         max_width = int(
-            150 - difficulty * 25
+            190 - difficulty * 15
         )
 
         min_width = max(
