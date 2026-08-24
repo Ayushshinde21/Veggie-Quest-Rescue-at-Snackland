@@ -20,8 +20,8 @@ class Enemy:
 
         if enemy_type == "heavy":
 
-            width = 50
-            height = 50
+            width = 60
+            height = 60
 
         else:
 
@@ -42,6 +42,31 @@ class Enemy:
         self.speed = speed
 
         self.direction = 1
+        # ==========================================
+        # FAST ENEMY
+        # ==========================================
+
+        self.fast_timer = 0
+
+        self.fast_burst_timer = 0
+
+        self.fast_burst_duration = 12
+
+        self.fast_burst_cooldown = 120
+
+        self.fast_burst_speed = 2.2
+
+        # ==========================================
+        # HEAVY ENEMY
+        # ==========================================
+
+        self.heavy_timer = 0
+
+        self.heavy_pause = 0
+
+        self.heavy_pause_duration = 20
+
+        self.heavy_move_duration = 90
 
         # ==========================================
         # PATROL LIMITS
@@ -71,11 +96,13 @@ class Enemy:
 
         self.gravity = 0.5
 
-        self.jump_strength = -9
+        self.jump_strength = -10
 
         self.jump_timer = 0
 
-        self.jump_delay = 120
+        self.jump_delay = 90
+
+        self.landing_timer = 0
 
         self.platform_top = platform_top
 
@@ -90,6 +117,12 @@ class Enemy:
         self.fly_top = y - 40
 
         self.fly_bottom = y + 40
+
+        self.fly_time = 0
+
+        self.fly_amplitude = 25
+
+        self.fly_center_y = y
 
     # ==============================================
     # UPDATE
@@ -106,7 +139,7 @@ class Enemy:
 
         elif self.enemy_type == "fast":
 
-            self.move_horizontal()
+            self.update_fast()
 
         elif self.enemy_type == "jumper":
 
@@ -122,7 +155,7 @@ class Enemy:
 
         elif self.enemy_type == "heavy":
 
-            self.move_horizontal()
+            self.update_heavy()
 
     # ==============================================
     # HORIZONTAL MOVEMENT
@@ -148,23 +181,121 @@ class Enemy:
             self.direction = -1
 
     # ==============================================
+    # FAST ENEMY
+    # ==============================================
+
+    def update_fast(self):
+
+        self.fast_timer += 1
+
+        # ------------------------------------------
+        # START BURST
+        # ------------------------------------------
+
+        if (
+            self.fast_burst_timer == 0
+            and self.fast_timer >= self.fast_burst_cooldown
+        ):
+
+            self.fast_burst_timer = (
+                self.fast_burst_duration
+            )
+
+            self.fast_timer = 0
+
+        # ------------------------------------------
+        # BURST MOVEMENT
+        # ------------------------------------------
+
+        if self.fast_burst_timer > 0:
+
+            self.fast_burst_timer -= 1
+
+            old_speed = self.speed
+
+            self.speed = self.fast_burst_speed
+
+            self.move_horizontal()
+
+            self.speed = old_speed
+
+        else:
+
+            self.move_horizontal()
+
+    # ==============================================
+    # HEAVY ENEMY
+    # ==============================================
+
+    def update_heavy(self):
+
+        # ------------------------------------------
+        # PAUSE
+        # ------------------------------------------
+
+        if self.heavy_pause > 0:
+
+            self.heavy_pause -= 1
+
+            return
+
+        # ------------------------------------------
+        # MOVE
+        # ------------------------------------------
+
+        self.move_horizontal()
+
+        self.heavy_timer += 1
+
+        # ------------------------------------------
+        # TAKE A BREAK
+        # ------------------------------------------
+
+        if (
+            self.heavy_timer
+            >= self.heavy_move_duration
+        ):
+
+            self.heavy_timer = 0
+
+            self.heavy_pause = (
+                self.heavy_pause_duration
+            )
+
+    # ==============================================
     # JUMPER
     # ==============================================
 
     def update_jump(self):
 
+        # ------------------------------------------
+        # LANDING PAUSE
+        # ------------------------------------------
+
+        if self.landing_timer > 0:
+            self.landing_timer -= 1
+
+            return
+
+        # ------------------------------------------
+        # JUMP TIMER
+        # ------------------------------------------
+
         self.jump_timer += 1
 
         if (
-            self.jump_timer >= self.jump_delay
-            and self.velocity_y == 0
+                self.jump_timer >= self.jump_delay
+                and abs(self.velocity_y) < 0.1
         ):
-
             self.velocity_y = (
                 self.jump_strength
             )
 
             self.jump_timer = 0
+
+        # ------------------------------------------
+        # GRAVITY
+        # ------------------------------------------
 
         self.velocity_y += self.gravity
 
@@ -172,18 +303,23 @@ class Enemy:
             self.velocity_y
         )
 
+        # ------------------------------------------
+        # LANDING
+        # ------------------------------------------
+
         if self.platform_top is not None:
 
             if (
-                self.rect.bottom >= self.platform_top
-                and self.velocity_y > 0
+                    self.rect.bottom >= self.platform_top
+                    and self.velocity_y > 0
             ):
-
                 self.rect.bottom = (
                     self.platform_top
                 )
 
                 self.velocity_y = 0
+
+                self.landing_timer = 8
 
     # ==============================================
     # FLYER
@@ -191,22 +327,45 @@ class Enemy:
 
     def update_fly(self):
 
-        self.rect.y += (
-            self.fly_speed
-            * self.fly_direction
+        self.fly_time += 1
+
+        # ------------------------------------------
+        # HORIZONTAL MOVEMENT
+        # ------------------------------------------
+
+        self.rect.x += (
+                self.speed
+                * self.direction
         )
 
-        if self.rect.top <= self.fly_top:
+        if self.rect.left <= self.left_limit:
+            self.rect.left = self.left_limit
 
-            self.rect.top = self.fly_top
+            self.direction = 1
 
-            self.fly_direction = 1
+        if self.rect.right >= self.right_limit:
+            self.rect.right = self.right_limit
 
-        if self.rect.bottom >= self.fly_bottom:
+            self.direction = -1
 
-            self.rect.bottom = self.fly_bottom
+        # ------------------------------------------
+        # SMOOTH VERTICAL MOVEMENT
+        # ------------------------------------------
 
-            self.fly_direction = -1
+        import math
+
+        offset = (
+                math.sin(
+                    self.fly_time
+                    * 0.025
+                )
+                * self.fly_amplitude
+        )
+
+        self.rect.centery = int(
+            self.fly_center_y
+            + offset
+        )
 
     # ==============================================
     # PLAYER COLLISION
@@ -262,12 +421,12 @@ class Enemy:
                 210
             )
 
-        elif self.enemy_type == "heavy":
 
+        elif self.enemy_type == "heavy":
             body_color = (
-                80,
-                80,
-                90
+                40,
+                40,
+                40
             )
 
         else:

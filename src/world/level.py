@@ -4,10 +4,12 @@ import random
 from src.settings import HEIGHT, WORLD_WIDTH
 from src.entities.player import Player
 from src.entities.platform import Platform
+from src.entities.moving_platform import MovingPlatform
 from src.entities.collectible import Collectible
 from src.entities.checkpoint import Checkpoint
 from src.world.camera import Camera
 from src.world.platform_generator import PlatformGenerator
+from src.entities.obstacle import Obstacle
 from src.entities.enemy import Enemy
 
 
@@ -51,13 +53,6 @@ class Level:
             self.width,
             80
         )
-        # ==========================================
-        # DEEP PITS
-        # ==========================================
-
-        self.pits = []
-
-        self.generate_pits()
 
         # ==========================================
         # RANDOM PLATFORMS
@@ -73,6 +68,20 @@ class Level:
             0,
             self.ground
         )
+
+        # ==========================================
+        # MOVING PLATFORMS
+        # ==========================================
+
+        self.moving_platforms = []
+
+        self.generate_moving_platforms()
+        # ==========================================
+        # DEEP PITS
+        # ==========================================
+
+        self.pits = []
+        self.generate_pits()
 
         # ==========================================
         # PLAYER
@@ -137,12 +146,24 @@ class Level:
 
         self.enemies = []
         self.generate_enemies()
+
+        # ==========================================
+        # OBSTACLES
+        # ==========================================
+
+        self.obstacles = []
+
+        self.generate_obstacles()
         # ==========================================
         # ENEMY DAMAGE
         # ==========================================
 
         self.damage_cooldown = 0
         self.damage_cooldown_max = 60
+
+        # Death screen effect
+        self.death_flash_timer = 0
+        self.death_flash_duration = 21
 
     # ==============================================
     # GENERATE COLLECTIBLES
@@ -215,12 +236,188 @@ class Level:
                 checkpoint_x
                 + checkpoint_spacing
             )
+            # ==============================================
+
+    # GENERATE DEEP PITS
+    # ==============================================
+
+    def generate_pits(self):
+
+        self.pits.clear()
+
+        # Need at least two platforms
+        if len(self.platforms) < 3:
+            return
+
+        # Start checking after the first few platforms
+        for i in range(1, len(self.platforms) - 1):
+
+            current_platform = self.platforms[i]
+            next_platform = self.platforms[i + 1]
+
+            # ======================================
+            # GAP BETWEEN PLATFORMS
+            # ======================================
+
+            gap_start = current_platform.rect.right
+            gap_end = next_platform.rect.left
+
+            gap_width = gap_end - gap_start
+
+            # ======================================
+            # GAP TOO SMALL
+            # ======================================
+
+            if gap_width < 120:
+                continue
+
+            # ======================================
+            # DON'T MAKE EVERY GAP A PIT
+            # ======================================
+
+            progress = (
+                    current_platform.rect.centerx
+                    / self.width
+            )
+
+            if progress < 0.25:
+
+                pit_chance = 0.25
+
+            elif progress < 0.60:
+
+                pit_chance = 0.40
+
+            else:
+
+                pit_chance = 0.55
+
+            if random.random() > pit_chance:
+                continue
+
+            # ======================================
+            # KEEP SAFE LANDING AREA
+            # ======================================
+
+            safe_margin = 25
+
+            pit_left = gap_start + safe_margin
+            pit_right = gap_end - safe_margin
+
+            pit_width = (
+                    pit_right - pit_left
+            )
+
+            # ======================================
+            # PIT TOO SMALL
+            # ======================================
+
+            if pit_width < 80:
+                continue
+
+            # ======================================
+            # LIMIT PIT SIZE
+            # ======================================
+
+            # ======================================
+            # PIT DIFFICULTY
+            # ======================================
+
+            if progress < 0.35:
+
+                pit_limit = random.randint(
+                    140,
+                    180
+                )
+
+            elif progress < 0.70:
+
+                pit_limit = random.randint(
+                    160,
+                    210
+                )
+
+            else:
+
+                pit_limit = random.randint(
+                    180,
+                    230
+                )
+
+            pit_width = min(
+                pit_width,
+                pit_limit
+            )
+
+            # Center the pit inside the gap
+
+            pit_center = (
+                    (pit_left + pit_right) // 2
+            )
+
+            pit_left = (
+                    pit_center
+                    - pit_width // 2
+            )
+
+            # ======================================
+            # CREATE PIT
+            # ======================================
+
+            pit = pygame.Rect(
+                pit_left,
+                HEIGHT - 80,
+                pit_width,
+                80
+            )
+
+            self.pits.append(pit)
+
+    # ==============================================
+    # GENERATE MOVING PLATFORMS
+    # ==============================================
+
+    def generate_moving_platforms(self):
+
+        self.moving_platforms.clear()
+
+        # ==========================================
+        # FIXED POSITIONS FOR NOW
+        # ==========================================
+
+        positions = [
+            (1800, 420, "horizontal"),
+            (3600, 350, "vertical"),
+            (5400, 430, "horizontal"),
+            (7200, 360, "vertical"),
+            (8600, 420, "horizontal")
+        ]
+
+        for x, y, movement_type in positions:
+
+            platform = MovingPlatform(
+                x,
+                y,
+                140,
+                20,
+                movement_type=movement_type,
+                movement_distance=120,
+                movement_speed=1.0
+            )
+
+            self.moving_platforms.append(
+                platform
+            )
+
 
     # ==============================================
     # RESPAWN
     # ==============================================
 
     def respawn_player(self):
+
+        self.player.start_respawn_effect()
+        self.death_flash_timer = self.death_flash_duration
 
         if self.current_checkpoint is not None:
 
@@ -277,14 +474,101 @@ class Level:
         if self.damage_cooldown > 0:
             self.damage_cooldown -= 1
 
+        if self.death_flash_timer > 0:
+            self.death_flash_timer -= 1
+
+        # ------------------------------------------
+        # PLAYER
+        # ------------------------------------------
+
+        collision_platforms = (
+                self.platforms
+                + self.moving_platforms
+        )
+
+        # ------------------------------------------
+        # REMOVE GROUND COLLISION INSIDE PITS
+        # ------------------------------------------
+
+        if self.player.rect.bottom >= HEIGHT - 100:
+
+            collision_platforms = []
+
+            for platform in self.platforms:
+
+                # Never remove normal platforms
+
+                if platform is not self.ground:
+                    collision_platforms.append(
+                        platform
+                    )
+
+                    continue
+
+                # Check whether player's center
+                # is inside a pit
+
+                player_center_x = (
+                    self.player.rect.centerx
+                )
+
+                inside_pit = False
+
+                for pit in self.pits:
+
+                    if pit.left <= player_center_x <= pit.right:
+                        inside_pit = True
+                        break
+
+                if not inside_pit:
+                    collision_platforms.append(
+                        platform
+                    )
+        # ------------------------------------------
+        # MOVING PLATFORMS
+        # ------------------------------------------
+
+        for platform in self.platforms:
+
+            if platform.__class__.__name__ == "MovingPlatform":
+                platform.update()
+
         # ------------------------------------------
         # PLAYER
         # ------------------------------------------
 
         self.player.update(
-            self.platforms
+            collision_platforms
         )
+        # ------------------------------------------
+        # OBSTACLE COLLISION
+        # ------------------------------------------
 
+        for obstacle in self.obstacles:
+
+            if not obstacle.active:
+                continue
+
+            if obstacle.check_collision(
+                    self.player
+            ):
+
+                # Push player away instead of damaging
+
+                if (
+                        self.player.rect.centerx
+                        < obstacle.rect.centerx
+                ):
+
+                    self.player.rect.right = (
+                        obstacle.rect.left
+                    )
+
+                else:
+
+                    self.player.rect.left = (
+                        obstacle.rect.right
+                    )
         # ------------------------------------------
         # DEATH
         # ------------------------------------------
@@ -353,6 +637,13 @@ class Level:
                     checkpoint
                 )
         # ------------------------------------------
+        # MOVING PLATFORMS
+        # ------------------------------------------
+
+        for platform in self.moving_platforms:
+            platform.update()
+
+        # ------------------------------------------
         # ENEMIES
         # ------------------------------------------
 
@@ -360,6 +651,7 @@ class Level:
             enemy.update()
 
         self.handle_enemy_collisions()
+        self.handle_obstacle_collisions()
 
     # ==============================================
     # DRAW
@@ -434,6 +726,59 @@ class Level:
                     5
                 )
             )
+        # ==========================================
+        # OBSTACLES
+        # ==========================================
+
+        for obstacle in self.obstacles:
+            obstacle.draw(
+                screen,
+                self.camera
+            )
+        # ==========================================
+        # MOVING PLATFORMS
+        # ==========================================
+
+        for platform in self.moving_platforms:
+
+            platform.draw(
+                screen,
+                self.camera
+            )
+        # ==========================================
+        # DEEP PITS
+        # ==========================================
+
+        for pit in self.pits:
+
+            pit_rect = self.camera.apply(
+                pit
+            )
+
+            # Dark empty area
+
+            pygame.draw.rect(
+                screen,
+                (20, 20, 20),
+                pit_rect
+            )
+
+            # Small warning edge
+
+            pygame.draw.line(
+                screen,
+                (180, 60, 40),
+                (
+                    pit_rect.left,
+                    pit_rect.top
+                ),
+                (
+                    pit_rect.right,
+                    pit_rect.top
+                ),
+                5
+            )
+
 
         # ==========================================
         # CHECKPOINTS
@@ -509,30 +854,58 @@ class Level:
             player_rect
         )
         # ==========================================
-        # HEALTH
+        # HEART HEALTH BAR
         # ==========================================
 
-        health_text = self.font.render(
-            f"❤️ Health: {self.player.health}",
-            True,
-            (255, 255, 255)
-        )
+        max_health = 3
 
-        health_shadow = self.font.render(
-            f"❤️ Health: {self.player.health}",
-            True,
-            (0, 0, 0)
-        )
+        for i in range(max_health):
 
-        screen.blit(
-            health_shadow,
-            (21, 61)
-        )
+            heart_x = 20 + i * 42
+            heart_y = 62
 
-        screen.blit(
-            health_text,
-            (20, 60)
-        )
+            # --------------------------------------
+            # HEART SHAPE
+            # --------------------------------------
+
+            heart_points = [
+                (heart_x + 12, heart_y + 27),
+                (heart_x + 2, heart_y + 15),
+                (heart_x, heart_y + 8),
+                (heart_x + 2, heart_y + 3),
+                (heart_x + 7, heart_y),
+                (heart_x + 12, heart_y + 5),
+                (heart_x + 17, heart_y),
+                (heart_x + 22, heart_y + 3),
+                (heart_x + 24, heart_y + 8),
+                (heart_x + 22, heart_y + 15)
+            ]
+
+            # --------------------------------------
+            # FULL HEART
+            # --------------------------------------
+
+            if i < self.player.health:
+
+                pygame.draw.polygon(
+                    screen,
+                    (220, 40, 50),
+                    heart_points
+                )
+
+            # --------------------------------------
+            # EMPTY HEART
+            # --------------------------------------
+
+            else:
+
+                pygame.draw.lines(
+                    screen,
+                    (100, 100, 100),
+                    True,
+                    heart_points,
+                    2
+                )
 
         # ==========================================
         # SCORE
@@ -624,6 +997,33 @@ class Level:
                 screen,
                 self.camera
             )
+        # ==========================================
+        # DEATH FLASH
+        # ==========================================
+
+        if self.death_flash_timer > 0:
+
+            flash = pygame.Surface(
+                screen.get_size(),
+                pygame.SRCALPHA
+            )
+
+            alpha = int(
+                140
+                * (
+                    self.death_flash_timer
+                    / self.death_flash_duration
+                )
+            )
+
+            flash.fill(
+                (255, 60, 60, alpha)
+            )
+
+            screen.blit(
+                flash,
+                (0, 0)
+            )
     # ==============================================
     # GENERATE ENEMIES
     # ==============================================
@@ -643,7 +1043,7 @@ class Level:
         created = 0
 
         print("GENERATING ENEMIES...")
-
+        heavy_count = 0
         for platform in self.platforms[1:]:
 
             total_platforms += 1
@@ -709,22 +1109,48 @@ class Level:
                 else:
                     enemy_type = "flyer"
 
+
             else:
 
                 if roll < 0.10:
+
                     enemy_type = "slime"
 
-                elif roll < 0.30:
+
+                elif roll < 0.25:
+
                     enemy_type = "fast"
 
-                elif roll < 0.50:
+
+                elif roll < 0.40:
+
                     enemy_type = "jumper"
 
-                elif roll < 0.75:
+
+                elif roll < 0.60:
+
                     enemy_type = "flyer"
 
+
                 else:
+
                     enemy_type = "heavy"
+
+                # ======================================
+                # FLYER SAFETY
+                # ======================================
+
+                if (
+                        enemy_type == "flyer"
+                        and platform.rect.width < 180
+                ):
+                    # Small platforms should not have flyers
+
+                    enemy_type = random.choice([
+                        "slime",
+                        "fast",
+                        "jumper"
+                    ])
 
             # ======================================
             # ENEMY SIZE
@@ -749,9 +1175,9 @@ class Level:
                 enemy_height = 24
 
                 if enemy_type == "fast":
-                    speed = 3
+                    speed = 1.5
                 else:
-                    speed = 2
+                    speed = 1.0
 
             else:
 
@@ -759,9 +1185,9 @@ class Level:
                 enemy_height = 32
 
                 if enemy_type == "fast":
-                    speed = 3
+                    speed = 1.5
                 else:
-                    speed = 2
+                    speed = 1.0
 
             # ======================================
             # PATROL AREA
@@ -814,6 +1240,8 @@ class Level:
             )
 
             self.enemies.append(enemy)
+            if enemy_type == "heavy":
+                heavy_count += 1
 
             created += 1
 
@@ -845,11 +1273,134 @@ class Level:
             "TOTAL ENEMIES GENERATED:",
             created
         )
+        print(
+            "HEAVY ENEMIES:",
+            heavy_count
+        )
+
+    # ==============================================
+    # GENERATE OBSTACLES
+    # ==============================================
+
+    def generate_obstacles(self):
+
+        self.obstacles.clear()
+
+        created = 0
+
+        print("GENERATING OBSTACLES...")
+
+        for platform in self.platforms[1:]:
+
+            # ======================================
+            # PLATFORM SIZE
+            # ======================================
+
+            if platform.rect.width < 150:
+                continue
+
+            # ======================================
+            # DON'T PUT OBSTACLE EVERYWHERE
+            # ======================================
+
+            progress = (
+                    platform.rect.centerx
+                    / self.width
+            )
+
+            if progress < 0.30:
+
+                spawn_chance = 0.15
+
+            elif progress < 0.60:
+
+                spawn_chance = 0.25
+
+            else:
+
+                spawn_chance = 0.35
+
+            if random.random() > spawn_chance:
+                continue
+
+            # ======================================
+            # SIZE
+            # ======================================
+
+            obstacle_width = random.randint(
+                35,
+                50
+            )
+
+            obstacle_height = random.randint(
+                30,
+                45
+            )
+
+            # ======================================
+            # SAFE MARGIN
+            # ======================================
+
+            margin = 25
+
+            left_limit = (
+                    platform.rect.left
+                    + margin
+            )
+
+            right_limit = (
+                    platform.rect.right
+                    - margin
+                    - obstacle_width
+            )
+
+            # ======================================
+            # NOT ENOUGH SPACE
+            # ======================================
+
+            if right_limit <= left_limit:
+                continue
+
+            # ======================================
+            # POSITION
+            # ======================================
+
+            x = random.randint(
+                left_limit,
+                right_limit
+            )
+
+            y = (
+                    platform.rect.top
+                    - obstacle_height
+            )
+
+            # ======================================
+            # CREATE
+            # ======================================
+
+            obstacle = Obstacle(
+                x,
+                y,
+                obstacle_width,
+                obstacle_height,
+                "rock"
+            )
+
+            self.obstacles.append(
+                obstacle
+            )
+
+            created += 1
+
+        print(
+            "TOTAL OBSTACLES:",
+            created
+        )
 
     # ==============================================
     # ENEMY COLLISION
     # ==============================================
-
     def handle_enemy_collisions(self):
 
         for enemy in self.enemies:
@@ -888,6 +1439,8 @@ class Level:
                     if self.damage_cooldown <= 0:
                         self.player.health -= 1
 
+                        self.player.take_damage()
+
                         self.damage_cooldown = (
                             self.damage_cooldown_max
                         )
@@ -922,6 +1475,8 @@ class Level:
                     self.player.health - 1
                 )
 
+                self.player.take_damage()
+
                 self.damage_cooldown = (
                     self.damage_cooldown_max
                 )
@@ -944,3 +1499,96 @@ class Level:
 
                 # Stop downward movement
                 self.player.velocity_y = -5
+
+    # ==============================================
+    # OBSTACLE COLLISION
+    # ==============================================
+
+    # ==============================================
+    # OBSTACLE COLLISION
+    # ==============================================
+
+    def handle_obstacle_collisions(self):
+
+        for obstacle in self.obstacles:
+
+            if not obstacle.active:
+                continue
+
+            if not obstacle.check_collision(
+                    self.player
+            ):
+                continue
+
+            # ======================================
+            # PLAYER LANDING ON TOP
+            # ======================================
+
+            player_bottom = self.player.rect.bottom
+            obstacle_top = obstacle.rect.top
+
+            if (
+                    self.player.velocity_y >= 0
+                    and player_bottom <= obstacle_top + 15
+            ):
+                # Allow player to stand on the rock
+                self.player.rect.bottom = (
+                    obstacle.rect.top
+                )
+
+                self.player.velocity_y = 0
+
+                self.player.on_ground = True
+
+                continue
+
+            # ======================================
+            # SIDE COLLISION
+            # ======================================
+
+            if self.damage_cooldown > 0:
+                continue
+
+            # ======================================
+            # DAMAGE
+            # ======================================
+
+            self.player.health = max(
+                0,
+                self.player.health - 1
+            )
+
+            self.damage_cooldown = (
+                self.damage_cooldown_max
+            )
+
+            # ======================================
+            # DAMAGE EFFECT
+            # ======================================
+
+            self.player.take_damage()
+
+            # ======================================
+            # PUSH PLAYER AWAY
+            # ======================================
+
+            if (
+                    self.player.rect.centerx
+                    < obstacle.rect.centerx
+            ):
+
+                self.player.rect.right = (
+                    obstacle.rect.left
+                )
+
+            else:
+
+                self.player.rect.left = (
+                    obstacle.rect.right
+                )
+
+            # ======================================
+            # SMALL BOUNCE
+            # ======================================
+
+            self.player.velocity_y = -5

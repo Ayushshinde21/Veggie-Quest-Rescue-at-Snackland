@@ -28,10 +28,15 @@ class Player(GameObject):
 
         # State
         self.on_ground = False
+        self.current_platform = None
         self.facing_right = True
 
         # Health
         self.health = 3
+
+        # Damage effect
+        self.damage_flash_timer = 0
+        self.damage_flash_duration = 12
 
         # Animation
         self.animation_timer = 0
@@ -40,6 +45,10 @@ class Player(GameObject):
         # Coyote time
         self.coyote_time = 0
         self.coyote_time_max = 8
+
+        # Death / respawn effect
+        self.respawn_timer = 0
+        self.respawn_delay = 60
 
     # --------------------------------------------------
     # INPUT
@@ -81,8 +90,31 @@ class Player(GameObject):
             self.velocity_y = self.jump_strength
 
             self.on_ground = False
-
+            self.current_platform = None
             self.coyote_time = 0
+
+    # --------------------------------------------------
+    # DAMAGE
+    # --------------------------------------------------
+
+    def take_damage(self):
+
+        self.damage_flash_timer = (
+            self.damage_flash_duration
+        )
+
+    # --------------------------------------------------
+    # DEATH / RESPAWN EFFECT
+    # --------------------------------------------------
+
+    def start_respawn_effect(self):
+
+        self.respawn_timer = self.respawn_delay
+
+    def update_respawn_effect(self):
+
+        if self.respawn_timer > 0:
+            self.respawn_timer -= 1
 
     # --------------------------------------------------
     # GRAVITY
@@ -103,6 +135,7 @@ class Player(GameObject):
         was_on_ground = self.on_ground
 
         self.on_ground = False
+        self.current_platform = None
 
         for platform in platforms:
 
@@ -119,6 +152,8 @@ class Player(GameObject):
                     self.velocity_y = 0
 
                     self.on_ground = True
+
+                    self.current_platform = platform
 
                     break
 
@@ -166,9 +201,45 @@ class Player(GameObject):
 
     def update(self, platforms):
 
-        previous_rect = self.rect.copy()
+        self.update_respawn_effect()
 
+        if self.damage_flash_timer > 0:
+            self.damage_flash_timer -= 1
+
+        previous_rect = self.rect.copy()
         moving = self.handle_input()
+
+        self.apply_gravity()
+
+        self.handle_platform_collision(
+            platforms,
+            previous_rect
+        )
+
+        # ------------------------------------------
+        # MOVING PLATFORM CARRY
+        # ------------------------------------------
+
+        if (
+                self.on_ground
+                and self.current_platform is not None
+                and hasattr(
+            self.current_platform,
+            "previous_x"
+        )
+        ):
+            dx = (
+                    self.current_platform.rect.x
+                    - self.current_platform.previous_x
+            )
+
+            dy = (
+                    self.current_platform.rect.y
+                    - self.current_platform.previous_y
+            )
+
+            self.rect.x += dx
+            self.rect.y += dy
 
         # Screen boundaries
         if self.rect.left < 0:
@@ -176,18 +247,6 @@ class Player(GameObject):
 
         if self.rect.right > WORLD_WIDTH:
             self.rect.right = WORLD_WIDTH
-        """print(
-            "PLAYER X:",
-            self.rect.x,
-            "WORLD WIDTH:",
-            WORLD_WIDTH
-        )"""
-        self.apply_gravity()
-
-        self.handle_platform_collision(
-            platforms,
-            previous_rect
-        )
 
         self.update_animation(moving)
 
@@ -196,6 +255,9 @@ class Player(GameObject):
     # --------------------------------------------------
 
     def draw(self, screen, camera_rect=None):
+
+        if self.respawn_timer > 0:
+            return
 
         if camera_rect is None:
             camera_rect = self.rect
@@ -214,9 +276,17 @@ class Player(GameObject):
             40
         )
 
+        if self.damage_flash_timer > 0:
+
+            body_color = (255, 255, 255)
+
+        else:
+
+            body_color = (255, 140, 0)
+
         pygame.draw.ellipse(
             screen,
-            (255, 140, 0),
+            body_color,
             body
         )
 

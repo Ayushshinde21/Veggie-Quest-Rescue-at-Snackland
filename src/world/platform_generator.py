@@ -297,11 +297,11 @@ class PlatformGenerator:
         # ------------------------------------------
 
         min_gap = int(
-            90 + difficulty * 15
+            100 + difficulty * 14
         )
 
         max_gap = int(
-            125 + difficulty * 20
+            140 + difficulty * 18
         )
 
         # Don't generate gaps beyond our
