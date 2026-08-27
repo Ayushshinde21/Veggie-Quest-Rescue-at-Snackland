@@ -425,7 +425,7 @@ class Level:
 
             self.player.rect.midbottom = (
                 checkpoint.rect.centerx,
-                checkpoint.rect.top
+                checkpoint.rect.top - 5
             )
 
         else:
@@ -446,6 +446,15 @@ class Level:
     def check_player_death(self):
 
         if self.player.rect.top > HEIGHT + 300:
+            # --------------------------------------
+            # START RESPAWN EFFECT
+            # --------------------------------------
+
+            self.player.start_respawn_effect()
+
+            # --------------------------------------
+            # RESPAWN
+            # --------------------------------------
 
             self.respawn_player()
 
@@ -478,12 +487,20 @@ class Level:
             self.death_flash_timer -= 1
 
         # ------------------------------------------
+        # MOVING PLATFORMS
+        # ------------------------------------------
+
+        for platform in self.moving_platforms:
+            platform.update()
+
+        # ------------------------------------------
         # PLAYER
         # ------------------------------------------
 
         collision_platforms = (
                 self.platforms
                 + self.moving_platforms
+                + self.obstacles
         )
 
         # ------------------------------------------
@@ -524,14 +541,22 @@ class Level:
                     collision_platforms.append(
                         platform
                     )
-        # ------------------------------------------
-        # MOVING PLATFORMS
-        # ------------------------------------------
 
-        for platform in self.platforms:
+            # --------------------------------------
+            # KEEP MOVING PLATFORMS
+            # --------------------------------------
 
-            if platform.__class__.__name__ == "MovingPlatform":
-                platform.update()
+            collision_platforms.extend(
+                self.moving_platforms
+            )
+
+            # --------------------------------------
+            # KEEP OBSTACLES
+            # --------------------------------------
+
+            collision_platforms.extend(
+                self.obstacles
+            )
 
         # ------------------------------------------
         # PLAYER
@@ -541,7 +566,7 @@ class Level:
             collision_platforms
         )
         # ------------------------------------------
-        # OBSTACLE COLLISION
+        # ROCK COLLISION / DAMAGE
         # ------------------------------------------
 
         for obstacle in self.obstacles:
@@ -549,26 +574,59 @@ class Level:
             if not obstacle.active:
                 continue
 
-            if obstacle.check_collision(
+            if not obstacle.check_collision(
                     self.player
             ):
+                continue
 
-                # Push player away instead of damaging
+            # --------------------------------------
+            # IF STANDING ON TOP OF ROCK
+            # --------------------------------------
 
-                if (
-                        self.player.rect.centerx
-                        < obstacle.rect.centerx
-                ):
+            if (
+                    self.player.rect.bottom
+                    <= obstacle.rect.top + 5
+            ):
+                continue
 
-                    self.player.rect.right = (
-                        obstacle.rect.left
-                    )
+            # --------------------------------------
+            # DAMAGE
+            # --------------------------------------
 
-                else:
+            if self.damage_cooldown > 0:
+                continue
 
-                    self.player.rect.left = (
-                        obstacle.rect.right
-                    )
+            self.player.health = max(
+                0,
+                self.player.health - 1
+            )
+
+            self.damage_cooldown = (
+                self.damage_cooldown_max
+            )
+
+            self.player.take_damage()
+
+            # --------------------------------------
+            # PUSH PLAYER AWAY
+            # --------------------------------------
+
+            if (
+                    self.player.rect.centerx
+                    < obstacle.rect.centerx
+            ):
+
+                self.player.rect.right = (
+                    obstacle.rect.left
+                )
+
+            else:
+
+                self.player.rect.left = (
+                    obstacle.rect.right
+                )
+
+            self.player.velocity_y = -5
         # ------------------------------------------
         # DEATH
         # ------------------------------------------
@@ -636,12 +694,6 @@ class Level:
                 self.current_checkpoint = (
                     checkpoint
                 )
-        # ------------------------------------------
-        # MOVING PLATFORMS
-        # ------------------------------------------
-
-        for platform in self.moving_platforms:
-            platform.update()
 
         # ------------------------------------------
         # ENEMIES
@@ -651,7 +703,6 @@ class Level:
             enemy.update()
 
         self.handle_enemy_collisions()
-        self.handle_obstacle_collisions()
 
     # ==============================================
     # DRAW
@@ -1499,96 +1550,3 @@ class Level:
 
                 # Stop downward movement
                 self.player.velocity_y = -5
-
-    # ==============================================
-    # OBSTACLE COLLISION
-    # ==============================================
-
-    # ==============================================
-    # OBSTACLE COLLISION
-    # ==============================================
-
-    def handle_obstacle_collisions(self):
-
-        for obstacle in self.obstacles:
-
-            if not obstacle.active:
-                continue
-
-            if not obstacle.check_collision(
-                    self.player
-            ):
-                continue
-
-            # ======================================
-            # PLAYER LANDING ON TOP
-            # ======================================
-
-            player_bottom = self.player.rect.bottom
-            obstacle_top = obstacle.rect.top
-
-            if (
-                    self.player.velocity_y >= 0
-                    and player_bottom <= obstacle_top + 15
-            ):
-                # Allow player to stand on the rock
-                self.player.rect.bottom = (
-                    obstacle.rect.top
-                )
-
-                self.player.velocity_y = 0
-
-                self.player.on_ground = True
-
-                continue
-
-            # ======================================
-            # SIDE COLLISION
-            # ======================================
-
-            if self.damage_cooldown > 0:
-                continue
-
-            # ======================================
-            # DAMAGE
-            # ======================================
-
-            self.player.health = max(
-                0,
-                self.player.health - 1
-            )
-
-            self.damage_cooldown = (
-                self.damage_cooldown_max
-            )
-
-            # ======================================
-            # DAMAGE EFFECT
-            # ======================================
-
-            self.player.take_damage()
-
-            # ======================================
-            # PUSH PLAYER AWAY
-            # ======================================
-
-            if (
-                    self.player.rect.centerx
-                    < obstacle.rect.centerx
-            ):
-
-                self.player.rect.right = (
-                    obstacle.rect.left
-                )
-
-            else:
-
-                self.player.rect.left = (
-                    obstacle.rect.right
-                )
-
-            # ======================================
-            # SMALL BOUNCE
-            # ======================================
-
-            self.player.velocity_y = -5

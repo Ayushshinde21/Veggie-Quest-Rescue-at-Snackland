@@ -7,7 +7,7 @@ class Obstacle:
         self,
         x,
         y,
-        width=40,
+        width=30,
         height=40,
         obstacle_type="rock"
     ):

@@ -37,6 +37,8 @@ class MovingPlatform(Platform):
 
         self.start_x = x
         self.start_y = y
+        self.previous_x = x
+        self.previous_y = y
 
         # ==========================================
         # DIRECTION
@@ -58,16 +60,17 @@ class MovingPlatform(Platform):
 
     def update(self):
 
+        # Save previous position BEFORE moving
         self.previous_x = self.rect.x
         self.previous_y = self.rect.y
 
         self.offset += (
-            self.movement_speed
-            * self.direction
+                self.movement_speed
+                * self.direction
         )
 
         # ==========================================
-        # HORIZONTAL ONLY
+        # HORIZONTAL
         # ==========================================
 
         if self.movement_type == "horizontal":
@@ -76,12 +79,10 @@ class MovingPlatform(Platform):
                 self.start_x + self.offset
             )
 
-            # Keep Y completely fixed
-
             self.rect.y = self.start_y
 
         # ==========================================
-        # VERTICAL ONLY
+        # VERTICAL
         # ==========================================
 
         elif self.movement_type == "vertical":
@@ -90,8 +91,6 @@ class MovingPlatform(Platform):
                 self.start_y + self.offset
             )
 
-            # Keep X completely fixed
-
             self.rect.x = self.start_x
 
         # ==========================================
@@ -99,10 +98,9 @@ class MovingPlatform(Platform):
         # ==========================================
 
         if abs(self.offset) >= self.movement_distance:
-
             self.offset = (
-                self.movement_distance
-                * self.direction
+                    self.movement_distance
+                    * self.direction
             )
 
             self.direction *= -1

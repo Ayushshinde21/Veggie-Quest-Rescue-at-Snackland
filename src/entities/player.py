@@ -29,6 +29,8 @@ class Player(GameObject):
         # State
         self.on_ground = False
         self.current_platform = None
+        self.previous_platform_x = 0
+        self.previous_platform_y = 0
         self.facing_right = True
 
         # Health
@@ -155,6 +157,14 @@ class Player(GameObject):
 
                     self.current_platform = platform
 
+                    self.previous_platform_x = (
+                        platform.rect.x
+                    )
+
+                    self.previous_platform_y = (
+                        platform.rect.y
+                    )
+
                     break
 
         # Update coyote timer
@@ -215,7 +225,6 @@ class Player(GameObject):
             platforms,
             previous_rect
         )
-
         # ------------------------------------------
         # MOVING PLATFORM CARRY
         # ------------------------------------------
@@ -223,19 +232,18 @@ class Player(GameObject):
         if (
                 self.on_ground
                 and self.current_platform is not None
-                and hasattr(
-            self.current_platform,
-            "previous_x"
-        )
+                and hasattr(self.current_platform, "previous_x")
         ):
+            platform = self.current_platform
+
             dx = (
-                    self.current_platform.rect.x
-                    - self.current_platform.previous_x
+                    platform.rect.x
+                    - platform.previous_x
             )
 
             dy = (
-                    self.current_platform.rect.y
-                    - self.current_platform.previous_y
+                    platform.rect.y
+                    - platform.previous_y
             )
 
             self.rect.x += dx
