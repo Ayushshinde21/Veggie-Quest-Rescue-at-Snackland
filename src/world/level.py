@@ -11,6 +11,7 @@ from src.world.camera import Camera
 from src.world.platform_generator import PlatformGenerator
 from src.entities.obstacle import Obstacle
 from src.entities.enemy import Enemy
+from src.systems.save_system import save_game
 
 
 class Level:
@@ -690,10 +691,14 @@ class Level:
             )
 
             if checkpoint.activated:
-
                 self.current_checkpoint = (
                     checkpoint
                 )
+
+                save_game(
+                    self
+                )
+
 
         # ------------------------------------------
         # ENEMIES
