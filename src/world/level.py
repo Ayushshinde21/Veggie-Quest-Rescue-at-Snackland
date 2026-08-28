@@ -11,7 +11,8 @@ from src.world.camera import Camera
 from src.world.platform_generator import PlatformGenerator
 from src.entities.obstacle import Obstacle
 from src.entities.enemy import Enemy
-from src.systems.save_system import save_game
+from src.systems.save_system import save_game, load_game
+
 
 
 class Level:
@@ -88,12 +89,12 @@ class Level:
         # PLAYER
         # ==========================================
 
-        self.start_x = 100
-        self.start_y = HEIGHT - 160
+        self.player_start_x = 100
+        self.player_start_y = HEIGHT - 160
 
         self.player = Player(
-            self.start_x,
-            self.start_y
+            self.player_start_x,
+            self.player_start_y
         )
 
         # ==========================================
@@ -119,6 +120,12 @@ class Level:
         self.current_checkpoint = None
 
         self.generate_checkpoints()
+
+        # ==========================================
+        # LOAD SAVED GAME
+        # ==========================================
+
+        load_game(self)
 
         # ==========================================
         # FINISH
@@ -226,7 +233,8 @@ class Level:
 
             checkpoint = Checkpoint(
                 checkpoint_x,
-                checkpoint_y
+                checkpoint_y,
+                len(self.checkpoints)
             )
 
             self.checkpoints.append(
@@ -417,28 +425,51 @@ class Level:
 
     def respawn_player(self):
 
-        self.player.start_respawn_effect()
-        self.death_flash_timer = self.death_flash_duration
+        # ==========================================
+        # RED DEATH EFFECT
+        # ==========================================
+
+        self.death_flash_timer = (
+            self.death_flash_duration
+        )
+
+        # ==========================================
+        # RESPAWN POSITION
+        # ==========================================
 
         if self.current_checkpoint is not None:
 
-            checkpoint = self.current_checkpoint
+            self.player.rect.x = (
+                self.current_checkpoint.respawn_x
+            )
 
-            self.player.rect.midbottom = (
-                checkpoint.rect.centerx,
-                checkpoint.rect.top - 5
+            self.player.rect.y = (
+                self.current_checkpoint.respawn_y
             )
 
         else:
 
-            self.player.rect.x = self.start_x
-            self.player.rect.y = self.start_y
+            self.player.rect.x = (
+                self.player_start_x
+            )
+
+            self.player.rect.y = (
+                self.player_start_y
+            )
+
+        # ==========================================
+        # RESET PHYSICS
+        # ==========================================
 
         self.player.velocity_y = 0
-
         self.player.on_ground = False
+        self.player.current_platform = None
 
-        self.player.coyote_time = 0
+        # ==========================================
+        # RESPAWN EFFECT
+        # ==========================================
+
+        self.player.start_respawn_effect()
 
     # ==============================================
     # CHECK DEATH
@@ -638,10 +669,10 @@ class Level:
         # HEALTH DEATH
         # ------------------------------------------
 
-        if self.player.health <= 0:
-            self.respawn_player()
+        # ------------------------------------------
+        # HEALTH DEATH
+        # ------------------------------------------
 
-            self.player.health = 3
 
         # ------------------------------------------
         # LEVEL COMPLETE
@@ -686,18 +717,28 @@ class Level:
 
         for checkpoint in self.checkpoints:
 
+            # Remember whether it was already activated
+            was_activated = checkpoint.activated
+
+            # Check if player touches checkpoint
             checkpoint.update(
                 self.player
             )
 
-            if checkpoint.activated:
-                self.current_checkpoint = (
-                    checkpoint
-                )
+            # --------------------------------------
+            # CHECKPOINT ACTIVATED
+            # --------------------------------------
 
-                save_game(
-                    self
-                )
+            if checkpoint.activated:
+
+                self.current_checkpoint = checkpoint
+
+                # ----------------------------------
+                # SAVE ONLY WHEN NEWLY ACTIVATED
+                # ----------------------------------
+
+                if not was_activated:
+                    save_game(self)
 
 
         # ------------------------------------------
@@ -708,6 +749,16 @@ class Level:
             enemy.update()
 
         self.handle_enemy_collisions()
+        # ------------------------------------------
+        # HEALTH DEATH
+        # ------------------------------------------
+
+        if self.player.health <= 0:
+            print("HEALTH DEATH")
+
+            self.player.health = 3
+
+            self.respawn_player()
 
     # ==============================================
     # DRAW
@@ -1474,26 +1525,31 @@ class Level:
             # ======================================
 
             player_bottom = self.player.rect.bottom
-
             enemy_top = enemy.rect.top
 
             # Player is falling
             if (
                     self.player.velocity_y > 0
-                    and player_bottom
-                    <= enemy_top + 15
+                    and player_bottom <= enemy_top + 15
             ):
 
-                # ======================================
-                # STOMP ENEMY
-                # ======================================
+                # ==================================
+                # HEAVY ENEMY
+                # ==================================
 
                 if enemy.enemy_type == "heavy":
 
                     # Heavy cannot be stomped
 
                     if self.damage_cooldown <= 0:
-                        self.player.health -= 1
+                        self.player.health = max(
+                            0,
+                            self.player.health - 1
+                        )
+                        print(
+                            "ENEMY HIT - HEALTH:",
+                            self.player.health
+                        )
 
                         self.player.take_damage()
 
@@ -1502,6 +1558,10 @@ class Level:
                         )
 
                         self.player.velocity_y = -5
+
+                # ==================================
+                # NORMAL ENEMY
+                # ==================================
 
                 else:
 
@@ -1526,9 +1586,17 @@ class Level:
                 if self.damage_cooldown > 0:
                     continue
 
+                # ----------------------------------
+                # DAMAGE
+                # ----------------------------------
+
                 self.player.health = max(
                     0,
                     self.player.health - 1
+                )
+                print(
+                    "HEAVY HIT - HEALTH:",
+                    self.player.health
                 )
 
                 self.player.take_damage()
@@ -1537,7 +1605,10 @@ class Level:
                     self.damage_cooldown_max
                 )
 
-                # Push player away
+                # ----------------------------------
+                # PUSH PLAYER AWAY
+                # ----------------------------------
+
                 if (
                         self.player.rect.centerx
                         < enemy.rect.centerx
@@ -1553,5 +1624,8 @@ class Level:
                         enemy.rect.right
                     )
 
-                # Stop downward movement
+                # ----------------------------------
+                # STOP DOWNWARD MOVEMENT
+                # ----------------------------------
+
                 self.player.velocity_y = -5

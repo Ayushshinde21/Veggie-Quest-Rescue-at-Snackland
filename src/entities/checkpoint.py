@@ -3,10 +3,23 @@ import pygame
 
 class Checkpoint:
 
-    def __init__(self, x, y):
+    def __init__(self, x, y, checkpoint_id=0):
+
+        # ==========================================
+        # POSITION
+        # ==========================================
 
         self.x = x
         self.y = y
+
+        self.checkpoint_id = checkpoint_id
+
+        self.respawn_x = x
+        self.respawn_y = y
+
+        # ==========================================
+        # CHECKPOINT COLLISION
+        # ==========================================
 
         self.rect = pygame.Rect(
             x,
@@ -14,6 +27,20 @@ class Checkpoint:
             20,
             50
         )
+
+        # ==========================================
+        # RESPAWN POSITION
+        # ==========================================
+
+        # Player will appear slightly above
+        # the bottom of the checkpoint.
+
+        self.respawn_x = x
+        self.respawn_y = y - 60
+
+        # ==========================================
+        # STATE
+        # ==========================================
 
         self.activated = False
 
@@ -23,9 +50,11 @@ class Checkpoint:
 
     def update(self, player):
 
-        if self.rect.colliderect(
-            player.rect
-        ):
+        if self.activated:
+            return
+
+        if self.rect.colliderect(player.rect):
+
             self.activated = True
 
     # ==============================================
@@ -34,25 +63,43 @@ class Checkpoint:
 
     def draw(self, screen, camera):
 
-        screen_rect = self.rect.copy()
-
         screen_rect = camera.apply(
-            screen_rect
+            self.rect
         )
 
-        # Pole
+        # ==========================================
+        # POLE
+        # ==========================================
+
         pygame.draw.rect(
             screen,
             (80, 80, 80),
             screen_rect
         )
 
-        # Flag
-        flag_color = (
-            (80, 200, 80)
-            if self.activated
-            else (200, 80, 80)
-        )
+        # ==========================================
+        # FLAG COLOR
+        # ==========================================
+
+        if self.activated:
+
+            flag_color = (
+                80,
+                200,
+                80
+            )
+
+        else:
+
+            flag_color = (
+                200,
+                80,
+                80
+            )
+
+        # ==========================================
+        # FLAG
+        # ==========================================
 
         pygame.draw.polygon(
             screen,

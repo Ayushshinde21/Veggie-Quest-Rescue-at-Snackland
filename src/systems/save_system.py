@@ -2,53 +2,35 @@ import json
 import os
 
 
-SAVE_FILE = "save.json"
+SAVE_FILE = "savegame.json"
 
 
-# ==================================================
+# ==============================================
 # SAVE GAME
-# ==================================================
+# ==============================================
 
 def save_game(level):
 
     data = {
-
         "score": level.score,
-
-        "health": level.player.health,
-
-        "level_complete": level.level_complete,
-
         "checkpoint": None
-
     }
 
-    # ----------------------------------------------
-    # CURRENT CHECKPOINT
-    # ----------------------------------------------
+    # ------------------------------------------
+    # SAVE CHECKPOINT
+    # ------------------------------------------
 
     if level.current_checkpoint is not None:
 
+        checkpoint = level.current_checkpoint
+
         data["checkpoint"] = {
-            "x": level.current_checkpoint.x,
-            "y": level.current_checkpoint.y
+            "id": checkpoint.checkpoint_id
         }
 
-    # ----------------------------------------------
-    # CHECKPOINTS
-    # ----------------------------------------------
-
-    data["checkpoints"] = []
-
-    for checkpoint in level.checkpoints:
-
-        data["checkpoints"].append(
-            checkpoint.activated
-        )
-
-    # ----------------------------------------------
+    # ------------------------------------------
     # WRITE JSON
-    # ----------------------------------------------
+    # ------------------------------------------
 
     with open(
         SAVE_FILE,
@@ -62,15 +44,14 @@ def save_game(level):
         )
 
 
-# ==================================================
+# ==============================================
 # LOAD GAME
-# ==================================================
+# ==============================================
 
 def load_game(level):
 
-    if not os.path.exists(
-        SAVE_FILE
-    ):
+    if not os.path.exists(SAVE_FILE):
+
         return False
 
     try:
@@ -82,101 +63,56 @@ def load_game(level):
 
             data = json.load(file)
 
-        # ------------------------------------------
-        # SCORE
-        # ------------------------------------------
-
-        level.score = data.get(
-            "score",
-            0
-        )
-
-        # ------------------------------------------
-        # HEALTH
-        # ------------------------------------------
-
-        level.player.health = data.get(
-            "health",
-            3
-        )
-
-        # ------------------------------------------
-        # LEVEL COMPLETE
-        # ------------------------------------------
-
-        level.level_complete = data.get(
-            "level_complete",
-            False
-        )
-
-        # ------------------------------------------
-        # CHECKPOINTS
-        # ------------------------------------------
-
-        saved_checkpoints = data.get(
-            "checkpoints",
-            []
-        )
-
-        for index, activated in enumerate(
-            saved_checkpoints
-        ):
-
-            if index < len(
-                level.checkpoints
-            ):
-
-                level.checkpoints[
-                    index
-                ].activated = activated
-
-        # ------------------------------------------
-        # CURRENT CHECKPOINT
-        # ------------------------------------------
-
-        checkpoint_data = data.get(
-            "checkpoint"
-        )
-
-        if checkpoint_data is not None:
-
-            for checkpoint in level.checkpoints:
-
-                if (
-                    checkpoint.x
-                    == checkpoint_data["x"]
-                    and
-                    checkpoint.y
-                    == checkpoint_data["y"]
-                ):
-
-                    level.current_checkpoint = (
-                        checkpoint
-                    )
-
-                    break
-
-        return True
-
     except (
         json.JSONDecodeError,
-        KeyError,
-        TypeError
+        OSError
     ):
 
         return False
 
+    # ------------------------------------------
+    # LOAD SCORE
+    # ------------------------------------------
 
-# ==================================================
+    level.score = data.get(
+        "score",
+        0
+    )
+
+    # ------------------------------------------
+    # LOAD CHECKPOINT
+    # ------------------------------------------
+
+    checkpoint_data = data.get(
+        "checkpoint"
+    )
+
+    if checkpoint_data is not None:
+
+        saved_id = checkpoint_data.get(
+            "id"
+        )
+
+        for checkpoint in level.checkpoints:
+
+            if checkpoint.checkpoint_id == saved_id:
+                checkpoint.activated = True
+
+                level.current_checkpoint = (
+                    checkpoint
+                )
+
+                break
+
+    return True
+
+
+# ==============================================
 # DELETE SAVE
-# ==================================================
+# ==============================================
 
 def delete_save():
 
-    if os.path.exists(
-        SAVE_FILE
-    ):
+    if os.path.exists(SAVE_FILE):
 
-        os.remove(
-            SAVE_FILE
-        )
+        os.remove(SAVE_FILE)
