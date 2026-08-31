@@ -17,12 +17,13 @@ from src.systems.save_system import save_game, load_game
 
 class Level:
 
-    def __init__(self, seed=None):
+    def __init__(self, seed=None, sound_manager = None):
+
+        self.sound_manager = sound_manager
 
         # ==========================================
         # LEVEL SEED
         # ==========================================
-
         if seed is None:
             seed = random.randint(
                 0,
@@ -478,8 +479,18 @@ class Level:
     def check_player_death(self):
 
         if self.player.rect.top > HEIGHT + 300:
+
             # --------------------------------------
-            # START RESPAWN EFFECT
+            # DEATH SOUND
+            # --------------------------------------
+
+            if self.sound_manager is not None:
+                self.sound_manager.play(
+                    "death"
+                )
+
+            # --------------------------------------
+            # RESPAWN EFFECT
             # --------------------------------------
 
             self.player.start_respawn_effect()
@@ -706,10 +717,19 @@ class Level:
             )
 
             if (
-                not was_collected
-                and collectible.collected
+                    not was_collected
+                    and collectible.collected
             ):
                 self.score += 1
+
+                # Play collectible sound
+                self.sound_manager.play(
+                    "collect"
+                )
+
+        # ------------------------------------------
+        # CHECKPOINTS
+        # ------------------------------------------
 
         # ------------------------------------------
         # CHECKPOINTS
@@ -717,28 +737,30 @@ class Level:
 
         for checkpoint in self.checkpoints:
 
-            # Remember whether it was already activated
             was_activated = checkpoint.activated
 
-            # Check if player touches checkpoint
             checkpoint.update(
                 self.player
             )
-
-            # --------------------------------------
-            # CHECKPOINT ACTIVATED
-            # --------------------------------------
 
             if checkpoint.activated:
 
                 self.current_checkpoint = checkpoint
 
                 # ----------------------------------
-                # SAVE ONLY WHEN NEWLY ACTIVATED
+                # NEW CHECKPOINT ACTIVATED
                 # ----------------------------------
 
                 if not was_activated:
+
+                    # Save progress
                     save_game(self)
+
+                    # Play checkpoint sound
+                    if self.sound_manager is not None:
+                        self.sound_manager.play(
+                            "checkpoint"
+                        )
 
 
         # ------------------------------------------
@@ -754,7 +776,11 @@ class Level:
         # ------------------------------------------
 
         if self.player.health <= 0:
-            print("HEALTH DEATH")
+
+            if self.sound_manager is not None:
+                self.sound_manager.play(
+                    "death"
+                )
 
             self.player.health = 3
 
@@ -1515,9 +1541,7 @@ class Level:
             if not enemy.alive:
                 continue
 
-            if not enemy.check_collision(
-                    self.player
-            ):
+            if not enemy.check_collision(self.player):
                 continue
 
             # ======================================
@@ -1527,7 +1551,6 @@ class Level:
             player_bottom = self.player.rect.bottom
             enemy_top = enemy.rect.top
 
-            # Player is falling
             if (
                     self.player.velocity_y > 0
                     and player_bottom <= enemy_top + 15
@@ -1539,25 +1562,33 @@ class Level:
 
                 if enemy.enemy_type == "heavy":
 
-                    # Heavy cannot be stomped
+                    if self.damage_cooldown > 0:
+                        continue
 
-                    if self.damage_cooldown <= 0:
-                        self.player.health = max(
-                            0,
-                            self.player.health - 1
+                    # Damage player
+                    self.player.health = max(
+                        0,
+                        self.player.health - 1
+                    )
+
+                    print(
+                        "HEAVY HIT - HEALTH:",
+                        self.player.health
+                    )
+
+                    self.player.take_damage()
+
+                    # 🔊 DAMAGE SOUND
+                    if self.sound_manager is not None:
+                        self.sound_manager.play(
+                            "damage"
                         )
-                        print(
-                            "ENEMY HIT - HEALTH:",
-                            self.player.health
-                        )
 
-                        self.player.take_damage()
+                    self.damage_cooldown = (
+                        self.damage_cooldown_max
+                    )
 
-                        self.damage_cooldown = (
-                            self.damage_cooldown_max
-                        )
-
-                        self.player.velocity_y = -5
+                    self.player.velocity_y = -5
 
                 # ==================================
                 # NORMAL ENEMY
@@ -1565,9 +1596,13 @@ class Level:
 
                 else:
 
-                    # Normal enemies can be stomped
-
                     enemy.alive = False
+
+                    # 🔊 STOMP SOUND
+                    if self.sound_manager is not None:
+                        self.sound_manager.play(
+                            "stomp"
+                        )
 
                     self.player.rect.bottom = (
                         enemy.rect.top
@@ -1586,28 +1621,32 @@ class Level:
                 if self.damage_cooldown > 0:
                     continue
 
-                # ----------------------------------
-                # DAMAGE
-                # ----------------------------------
-
+                # Damage player
                 self.player.health = max(
                     0,
                     self.player.health - 1
                 )
+
                 print(
-                    "HEAVY HIT - HEALTH:",
+                    "ENEMY HIT - HEALTH:",
                     self.player.health
                 )
 
                 self.player.take_damage()
 
+                # 🔊 DAMAGE SOUND
+                if self.sound_manager is not None:
+                    self.sound_manager.play(
+                        "damage"
+                    )
+
                 self.damage_cooldown = (
                     self.damage_cooldown_max
                 )
 
-                # ----------------------------------
+                # ==================================
                 # PUSH PLAYER AWAY
-                # ----------------------------------
+                # ==================================
 
                 if (
                         self.player.rect.centerx
@@ -1623,9 +1662,5 @@ class Level:
                     self.player.rect.left = (
                         enemy.rect.right
                     )
-
-                # ----------------------------------
-                # STOP DOWNWARD MOVEMENT
-                # ----------------------------------
 
                 self.player.velocity_y = -5

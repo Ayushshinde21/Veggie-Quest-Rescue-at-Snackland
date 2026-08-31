@@ -8,7 +8,7 @@ from src.settings import (
     SKY_BLUE,
     BLACK
 )
-
+from src.sound_manager import SoundManager
 from src.world.level import Level
 from src.ui.main_menu import MainMenu
 from src.ui.level_select import LevelSelect
@@ -62,6 +62,23 @@ class Game:
         )
 
         # ==========================================
+        # SOUND
+        # ==========================================
+
+        self.sound_manager = SoundManager()
+
+        # ==========================================
+        # LEVEL
+        # ==========================================
+        print(
+            "SOUND MANAGER:",
+            self.sound_manager
+        )
+        self.level = Level(
+            sound_manager=self.sound_manager
+        )
+
+        # ==========================================
         # MAIN MENU
         # ==========================================
 
@@ -81,11 +98,6 @@ class Game:
             self.screen
         )
 
-        # ==========================================
-        # LEVEL
-        # ==========================================
-
-        self.level = Level()
 
     # ==================================================
     # EVENTS
@@ -250,9 +262,16 @@ class Game:
                 # JUMP
                 # ----------------------------------
 
-                elif event.key == pygame.K_SPACE:
+                if event.key == pygame.K_SPACE:
 
+                    was_on_ground = (self.level.player.on_ground or
+                                        self.level.player.coyote_time > 0)
                     self.level.player.jump()
+
+                    if was_on_ground:
+                        self.sound_manager.play(
+                            "jump"
+                        )
 
     # ==================================================
     # UPDATE
