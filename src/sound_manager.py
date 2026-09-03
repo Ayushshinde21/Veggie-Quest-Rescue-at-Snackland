@@ -61,3 +61,35 @@ class SoundManager:
         if name in self.sounds:
 
             self.sounds[name].play()
+
+    # ==========================================
+    # BACKGROUND MUSIC
+    # ==========================================
+
+    def play_music(self):
+        music_path = os.path.join("assets", "music", "background.mp3")
+
+        print("Looking for music:", music_path)
+        print("Music exists:", os.path.exists(music_path))
+
+        if not os.path.exists(music_path):
+            print("Music file not found!")
+            return
+
+        try:
+            pygame.mixer.music.load(music_path)
+            pygame.mixer.music.set_volume(0.2)
+            pygame.mixer.music.play(-1)
+
+            print("Background music started")
+
+        except pygame.error as error:
+            print("Could not load music:", error)
+
+    # ==========================================
+    # STOP MUSIC
+    # ==========================================
+
+    def stop_music(self):
+
+        pygame.mixer.music.stop()

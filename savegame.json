@@ -1,4 +1,6 @@
 {
     "score": 0,
-    "checkpoint": null
+    "checkpoint": {
+        "id": -1
+    }
 }

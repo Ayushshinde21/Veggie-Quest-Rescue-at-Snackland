@@ -134,6 +134,7 @@ class Game:
                     )
 
                     self.game_started = True
+                    self.sound_manager.play_music()
 
                 elif result == "QUIT":
 
@@ -210,6 +211,7 @@ class Game:
                         self.victory_screen = False
 
                         self.game_started = True
+                        self.sound_manager.play_music()
                         self.level_selected = True
 
                     # ----------------------------------
@@ -552,7 +554,9 @@ class Game:
 
     def restart_level(self):
 
-        self.level = Level()
+        self.level = Level(
+            sound_manager=self.sound_manager
+        )
 
         self.game_over = False
         self.victory_screen = False
@@ -595,5 +599,5 @@ class Game:
         # ==========================================
         # CLEANUP
         # ==========================================
-
+        self.sound_manager.stop_music()
         pygame.quit()
