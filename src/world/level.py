@@ -12,7 +12,7 @@ from src.world.platform_generator import PlatformGenerator
 from src.entities.obstacle import Obstacle
 from src.entities.enemy import Enemy
 from src.systems.save_system import save_game, load_game
-
+from src.effects.particle import Particle
 
 
 class Level:
@@ -173,6 +173,8 @@ class Level:
         # Death screen effect
         self.death_flash_timer = 0
         self.death_flash_duration = 21
+
+        self.particles = []
 
     # ==============================================
     # GENERATE COLLECTIBLES
@@ -434,6 +436,14 @@ class Level:
             self.death_flash_duration
         )
 
+        # Death particles
+        self.create_particles(
+            self.player.rect.centerx,
+            self.player.rect.centery,
+            (255, 100, 50),
+            count=20
+        )
+
         # ==========================================
         # RESPAWN POSITION
         # ==========================================
@@ -498,6 +508,14 @@ class Level:
             # --------------------------------------
             # RESPAWN
             # --------------------------------------
+
+            # Pit death particles
+            self.create_particles(
+                self.player.rect.centerx,
+                self.player.rect.centery,
+                (255, 100, 50),
+                count=20
+            )
 
             self.respawn_player()
 
@@ -608,6 +626,7 @@ class Level:
         self.player.update(
             collision_platforms
         )
+
         # ------------------------------------------
         # ROCK COLLISION / DAMAGE
         # ------------------------------------------
@@ -704,32 +723,27 @@ class Level:
         # ------------------------------------------
 
         for collectible in self.collectibles:
+            if not collectible.collected and collectible.rect.colliderect(self.player.rect):
 
-            if collectible.collected:
-                continue
+                # Save position before collecting
+                particle_x = collectible.rect.centerx
+                particle_y = collectible.rect.centery
 
-            was_collected = (
-                collectible.collected
-            )
+                # Collect the item
+                collectible.collect()
+                self.score += collectible.value
 
-            collectible.update(
-                self.player
-            )
+                # Collect sound
+                if self.sound_manager is not None:
+                    self.sound_manager.play("collect")
 
-            if (
-                    not was_collected
-                    and collectible.collected
-            ):
-                self.score += 1
-
-                # Play collectible sound
-                self.sound_manager.play(
-                    "collect"
+                # Golden pickup particles
+                self.create_particles(
+                    particle_x,
+                    particle_y,
+                    (255, 215, 0),
+                    count=10
                 )
-
-        # ------------------------------------------
-        # CHECKPOINTS
-        # ------------------------------------------
 
         # ------------------------------------------
         # CHECKPOINTS
@@ -762,6 +776,14 @@ class Level:
                             "checkpoint"
                         )
 
+                    # Checkpoint activation particles
+                    self.create_particles(
+                        checkpoint.rect.centerx,
+                        checkpoint.rect.centery,
+                        (80, 255, 120),
+                        count=15
+                    )
+
 
         # ------------------------------------------
         # ENEMIES
@@ -771,6 +793,7 @@ class Level:
             enemy.update()
 
         self.handle_enemy_collisions()
+        self.update_particles()
         # ------------------------------------------
         # HEALTH DEATH
         # ------------------------------------------
@@ -785,6 +808,8 @@ class Level:
             self.player.health = 3
 
             self.respawn_player()
+
+
 
     # ==============================================
     # DRAW
@@ -1156,6 +1181,12 @@ class Level:
             screen.blit(
                 flash,
                 (0, 0)
+            )
+
+        for particle in self.particles:
+            particle.draw(
+                screen,
+                self.camera
             )
     # ==============================================
     # GENERATE ENEMIES
@@ -1584,6 +1615,14 @@ class Level:
                             "damage"
                         )
 
+                    # Damage particles
+                    self.create_particles(
+                        self.player.rect.centerx,
+                        self.player.rect.centery,
+                        (255, 80, 80),
+                        count=10
+                    )
+
                     self.damage_cooldown = (
                         self.damage_cooldown_max
                     )
@@ -1595,22 +1634,20 @@ class Level:
                 # ==================================
 
                 else:
-
                     enemy.alive = False
-
-                    # 🔊 STOMP SOUND
                     if self.sound_manager is not None:
-                        self.sound_manager.play(
-                            "stomp"
-                        )
+                        self.sound_manager.play("stomp")
 
-                    self.player.rect.bottom = (
-                        enemy.rect.top
-                    )
+                    # Enemy stomp particles
+                    self.create_particles(
+                        enemy.rect.centerx,
+                        enemy.rect.centery,
+                        (120, 255, 120),
+                        count=12
 
-                    self.player.velocity_y = (
-                            self.player.jump_strength * 0.65
                     )
+                    self.player.rect.bottom = enemy.rect.top
+                    self.player.velocity_y = self.player.jump_strength * 0.65
 
             # ======================================
             # SIDE COLLISION
@@ -1639,6 +1676,13 @@ class Level:
                     self.sound_manager.play(
                         "damage"
                     )
+                # Damage particles
+                self.create_particles(
+                    self.player.rect.centerx,
+                    self.player.rect.centery,
+                    (255, 80, 80),
+                    count=10
+                )
 
                 self.damage_cooldown = (
                     self.damage_cooldown_max
@@ -1664,3 +1708,23 @@ class Level:
                     )
 
                 self.player.velocity_y = -5
+
+    def update_particles(self):
+        for particle in self.particles:
+            particle.update()
+
+        self.particles = [
+            particle
+            for particle in self.particles
+            if particle.is_alive()
+        ]
+
+    def create_particles(self, x, y, color, count=8):
+        for _ in range(count):
+            self.particles.append(
+                Particle(
+                    x,
+                    y,
+                    color
+                )
+            )

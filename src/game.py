@@ -266,15 +266,26 @@ class Game:
 
                 if event.key == pygame.K_SPACE:
 
-                    was_on_ground = (self.level.player.on_ground or
-                                        self.level.player.coyote_time > 0)
-                    self.level.player.jump()
+                    was_on_ground = (
+                            self.level.player.on_ground
+                            or self.level.player.coyote_time > 0
+                    )
 
-                    if was_on_ground:
+                    jump_success = self.level.player.jump()
+
+                    if jump_success:
+                        # Jump sound
                         self.sound_manager.play(
                             "jump"
                         )
 
+                        # Jump dust particles
+                        self.level.create_particles(
+                            self.level.player.rect.centerx,
+                            self.level.player.rect.bottom,
+                            (220, 220, 220),
+                            count=6
+                        )
     # ==================================================
     # UPDATE
     # ==================================================

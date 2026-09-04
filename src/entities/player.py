@@ -87,13 +87,15 @@ class Player(GameObject):
     # --------------------------------------------------
 
     def jump(self):
-
         if self.on_ground or self.coyote_time > 0:
+            # Jump dust particles will be triggered by the level
             self.velocity_y = self.jump_strength
-
             self.on_ground = False
             self.current_platform = None
             self.coyote_time = 0
+            return True
+
+        return False
 
     # --------------------------------------------------
     # DAMAGE

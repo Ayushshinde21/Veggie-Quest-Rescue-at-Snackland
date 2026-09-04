@@ -3,7 +3,7 @@ import pygame
 
 class Collectible:
 
-    def __init__(self, x, y, size=24):
+    def __init__(self, x, y, size=24, value=10):
 
         self.rect = pygame.Rect(
             x,
@@ -11,8 +11,11 @@ class Collectible:
             size,
             size
         )
-
+        self.value = value
         self.collected = False
+
+    def collect(self):
+        self.collected = True
 
     # ==============================================
     # UPDATE
