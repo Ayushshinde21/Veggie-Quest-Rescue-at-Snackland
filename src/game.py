@@ -222,6 +222,7 @@ class Game:
 
                         self.running = False
 
+
                 continue
 
             # ======================================
@@ -259,6 +260,13 @@ class Game:
                 if event.key == pygame.K_ESCAPE:
 
                     self.paused = True
+
+                # ----------------------------------
+                # NPC INTERACTION
+                # ----------------------------------
+
+                if event.key == pygame.K_e:
+                    self.level.interact_with_npc()
 
                 # ----------------------------------
                 # JUMP

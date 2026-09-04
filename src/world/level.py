@@ -13,7 +13,8 @@ from src.entities.obstacle import Obstacle
 from src.entities.enemy import Enemy
 from src.systems.save_system import save_game, load_game
 from src.effects.particle import Particle
-
+from src.entities.npc import NPC
+from src.systems.dialogue import Dialogue
 
 class Level:
 
@@ -175,6 +176,33 @@ class Level:
         self.death_flash_duration = 21
 
         self.particles = []
+
+        self.npcs = [
+            NPC(
+                600,
+                400,
+                name="Snackland Guide",
+                dialogue=[
+                    "Welcome to Snackland!",
+                    "Collect the stars and rescue your friends!",
+                    "Good luck, Carrot!"
+                ]
+            ),
+
+            NPC(
+                1200,
+                400,
+                name="Chef Tomato",
+                dialogue=[
+                    "Hey Carrot!",
+                    "The next area is dangerous.",
+                    "Watch out for the enemies!"
+                ]
+            )
+        ]
+
+        self.dialogue = Dialogue(self.npcs[0].dialogue)
+        self.current_npc = None
 
     # ==============================================
     # GENERATE COLLECTIBLES
@@ -1183,11 +1211,66 @@ class Level:
                 (0, 0)
             )
 
+        for npc in self.npcs:
+
+            npc.draw(
+                screen,
+                self.camera
+            )
+
+            # ==========================================
+            # TALK PROMPT
+            # ==========================================
+
+            distance = abs(
+                self.player.rect.centerx -
+                npc.rect.centerx
+            )
+
+            if distance < 80 and not self.dialogue.active:
+                prompt_font = pygame.font.Font(
+                    None,
+                    22
+                )
+
+                prompt = prompt_font.render(
+                    "Press E to talk",
+                    True,
+                    (255, 255, 255)
+                )
+
+                prompt_rect = prompt.get_rect(
+                    center=(
+                        npc.rect.centerx - self.camera.x,
+                        npc.rect.top - 35
+                    )
+                )
+
+                # Small background
+                background_rect = prompt_rect.inflate(
+                    12,
+                    8
+                )
+
+                pygame.draw.rect(
+                    screen,
+                    (30, 30, 30),
+                    background_rect
+                )
+
+                screen.blit(
+                    prompt,
+                    prompt_rect
+                )
+
         for particle in self.particles:
             particle.draw(
                 screen,
                 self.camera
             )
+
+        self.draw_dialogue(screen)
+
     # ==============================================
     # GENERATE ENEMIES
     # ==============================================
@@ -1728,3 +1811,133 @@ class Level:
                     color
                 )
             )
+
+    def interact_with_npc(self):
+        if self.dialogue.active:
+            self.dialogue.next_line()
+
+            if not self.dialogue.active:
+                self.current_npc = None
+
+            return
+
+        for npc in self.npcs:
+            distance = abs(
+                self.player.rect.centerx -
+                npc.rect.centerx
+            )
+
+            if distance < 80:
+                self.current_npc = npc
+                self.dialogue = Dialogue(npc.dialogue)
+                self.dialogue.start()
+                break
+
+    def draw_dialogue(self, screen):
+
+        if not self.dialogue.active:
+            return
+
+        # ==========================================
+        # DIALOGUE BOX
+        # ==========================================
+
+        box_width = 700
+        box_height = 140
+
+        box_x = (
+                        screen.get_width() - box_width
+                ) // 2
+
+        box_y = (
+                screen.get_height() - box_height - 40
+        )
+
+        # Background
+        pygame.draw.rect(
+            screen,
+            (30, 30, 30),
+            (
+                box_x,
+                box_y,
+                box_width,
+                box_height
+            )
+        )
+
+        # Border
+        pygame.draw.rect(
+            screen,
+            (255, 220, 80),
+            (
+                box_x,
+                box_y,
+                box_width,
+                box_height
+            ),
+            4
+        )
+
+        # ==========================================
+        # TEXT
+        # ==========================================
+
+        name_font = pygame.font.Font(None, 32)
+        name_surface = name_font.render(
+            self.current_npc.name,
+            True,
+            (255, 220, 80)
+        )
+
+        name_rect = name_surface.get_rect(
+            center=(box_x + box_width // 2, box_y + 25)
+        )
+
+        screen.blit(name_surface, name_rect)
+
+        text = self.dialogue.get_current_line()
+
+        dialogue_font = pygame.font.Font(
+            None,
+            28
+        )
+
+        text_surface = dialogue_font.render(
+            text,
+            True,
+            (255, 255, 255)
+        )
+
+        text_rect = text_surface.get_rect(
+            center=(
+                box_x + box_width // 2,
+                box_y + 70
+            )
+        )
+
+        screen.blit(
+            text_surface,
+            text_rect
+        )
+
+        # ==========================================
+        # INSTRUCTION
+        # ==========================================
+
+        instruction = dialogue_font.render(
+            "Press E to continue",
+            True,
+            (200, 200, 200)
+        )
+
+        instruction_rect = instruction.get_rect(
+            center=(
+                box_x + box_width // 2,
+                box_y + 110
+            )
+        )
+
+        screen.blit(
+            instruction,
+            instruction_rect
+        )
