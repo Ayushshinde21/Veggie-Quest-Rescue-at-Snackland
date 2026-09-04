@@ -124,11 +124,24 @@ class Enemy:
 
         self.fly_center_y = y
 
+        self.animation_timer = 0
+        self.animation_offset = 0
+
     # ==============================================
     # UPDATE
     # ==============================================
 
     def update(self):
+
+        # Enemy animation
+        self.animation_timer += 1
+
+        if self.animation_timer >= 6:
+            self.animation_timer = 0
+            self.animation_offset += 1
+
+            if self.animation_offset > 1:
+                self.animation_offset = 0
 
         if not self.alive:
             return
@@ -393,6 +406,12 @@ class Enemy:
             self.rect
         )
 
+        # Small bobbing animation
+        draw_rect = camera_rect.copy()
+
+        if self.animation_offset == 1:
+            draw_rect.y -= 3
+
         # ==========================================
         # BODY COLOR
         # ==========================================
@@ -446,7 +465,7 @@ class Enemy:
             pygame.draw.rect(
                 screen,
                 body_color,
-                camera_rect,
+                draw_rect,
                 border_radius=8
             )
 
@@ -455,7 +474,7 @@ class Enemy:
             pygame.draw.ellipse(
                 screen,
                 body_color,
-                camera_rect
+                draw_rect
             )
 
         # ==========================================

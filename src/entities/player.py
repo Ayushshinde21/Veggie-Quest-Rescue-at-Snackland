@@ -184,25 +184,30 @@ class Player(GameObject):
     # --------------------------------------------------
 
     def update_animation(self, moving):
-
+        # Walking animation
         if moving and self.on_ground:
-
             self.animation_timer += 1
 
-            if self.animation_timer >= 10:
-
+            if self.animation_timer >= 8:
                 self.animation_timer = 0
-
                 self.animation_frame += 1
 
                 if self.animation_frame > 1:
-
                     self.animation_frame = 0
 
+        # Idle animation
+        elif self.on_ground:
+            self.animation_timer += 1
+
+            if self.animation_timer >= 15:
+                self.animation_timer = 0
+                self.animation_frame += 1
+
+                if self.animation_frame > 1:
+                    self.animation_frame = 0
+
+        # Airborne
         else:
-
-            self.animation_frame = 0
-
             self.animation_timer = 0
 
     # --------------------------------------------------
@@ -273,6 +278,19 @@ class Player(GameObject):
         x = camera_rect.x
         y = camera_rect.y
 
+        # Airborne animation
+        airborne_offset = 0
+
+        if not self.on_ground:
+            if self.velocity_y < 0:
+                # Going upward
+                airborne_offset = -3
+            else:
+                # Falling downward
+                airborne_offset = 3
+
+        y += airborne_offset
+
         # ---------------------------------------------
         # CARROT BODY
         # ---------------------------------------------
@@ -284,12 +302,14 @@ class Player(GameObject):
             40
         )
 
+        # Damage animation
         if self.damage_flash_timer > 0:
-
-            body_color = (255, 255, 255)
-
+            # Flash between white and normal carrot color
+            if self.damage_flash_timer % 4 < 2:
+                body_color = (255, 255, 255)
+            else:
+                body_color = (255, 80, 80)
         else:
-
             body_color = (255, 140, 0)
 
         pygame.draw.ellipse(
