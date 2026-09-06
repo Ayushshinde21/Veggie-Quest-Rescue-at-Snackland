@@ -21,7 +21,7 @@ class PlatformGenerator:
         # DIFFICULTY
         # ==========================================
 
-        self.base_difficulty = 1.5
+        self.base_difficulty = 1.0
 
         # ==========================================
         # PLAYER PHYSICS

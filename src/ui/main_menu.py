@@ -58,6 +58,20 @@ class MainMenu:
         )
 
     # ==============================================
+    # UNLOCK LEVEL
+    # ==============================================
+
+    def unlock_level(self, level_number):
+
+        if level_number < 1:
+            return
+
+        if level_number > len(self.levels):
+            return
+
+        self.levels[level_number - 1]["unlocked"] = True
+
+    # ==============================================
     # INPUT
     # ==============================================
 

@@ -130,7 +130,8 @@ class Game:
                 if result == "PLAY":
 
                     load_game(
-                        self.level
+                        self.level,
+                        self.level_select
                     )
 
                     self.game_started = True
@@ -152,7 +153,12 @@ class Game:
                     event
                 )
 
-                if result == 1:
+                if isinstance(result, int) and result > 0:
+
+                    self.level = Level(
+                        level_number=result,
+                        sound_manager=self.sound_manager
+                    )
 
                     self.level_selected = True
 
@@ -365,6 +371,14 @@ class Game:
         # ------------------------------------------
 
         if self.level.level_complete:
+
+            # Unlock the next level
+            completed_level = self.level.level_number
+
+            if completed_level < 3:
+                self.level_select.unlock_level(
+                    completed_level + 1
+                )
 
             self.victory_screen = True
 

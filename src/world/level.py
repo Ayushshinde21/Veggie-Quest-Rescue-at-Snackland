@@ -15,10 +15,36 @@ from src.systems.save_system import save_game, load_game
 from src.effects.particle import Particle
 from src.entities.npc import NPC
 from src.systems.dialogue import Dialogue
+from src.world.level_data import LEVELS
+
+
 
 class Level:
 
-    def __init__(self, seed=None, sound_manager = None):
+    def __init__(self, seed=None, level_number=1, sound_manager = None, difficulty = 1 ):
+
+        super().__init__()
+        self.level_number = level_number
+
+        self.level_config = LEVELS.get(
+            level_number,
+            LEVELS[1]
+        )
+
+        self.level_name = self.level_config["name"]
+        self.level_difficulty = self.level_config["difficulty"]
+        self.world_width = self.level_config["world_width"]
+        self.finish_x = self.level_config["finish_x"]
+
+        # Level-specific difficulty
+        if self.level_number == 1:
+            self.platform_difficulty = "easy"
+        elif self.level_number == 2:
+            self.platform_difficulty = "medium"
+        elif self.level_number == 3:
+            self.platform_difficulty = "hard"
+        else:
+            self.platform_difficulty = "easy"
 
         self.sound_manager = sound_manager
 
@@ -39,7 +65,7 @@ class Level:
         # WORLD
         # ==========================================
 
-        self.width = WORLD_WIDTH
+        self.width = self.level_config["world_width"]
 
         # ==========================================
         # CAMERA
@@ -59,12 +85,19 @@ class Level:
         )
 
         # ==========================================
-        # RANDOM PLATFORMS
+        # PLATFORM GENERATOR
         # ==========================================
 
-        self.generator = PlatformGenerator(
-            self.width
-        )
+        self.generator = PlatformGenerator(self.width)
+
+        if self.level_number == 1:
+            self.generator.base_difficulty = 1.0
+
+        elif self.level_number == 2:
+            self.generator.base_difficulty = 1.5
+
+        elif self.level_number == 3:
+            self.generator.base_difficulty = 2.0
 
         self.platforms = self.generator.generate()
 
@@ -1043,12 +1076,74 @@ class Level:
         # HEART HEALTH BAR
         # ==========================================
 
+        # HUD background
+        hud_background = pygame.Rect(
+            0,
+            0,
+            screen.get_width(),
+            120
+        )
+
+        pygame.draw.rect(
+            screen,
+            (128, 128, 128)  ,
+            hud_background
+        )
+
+        # Health panel
+        health_panel = pygame.Rect(
+            15,
+            38,
+            145,
+            75
+        )
+
+        pygame.draw.rect(
+            screen,
+            (30, 30, 30),
+            health_panel
+        )
+
+        pygame.draw.rect(
+            screen,
+            (220, 60, 70),
+            health_panel,
+            2
+        )
+
+        health_label_font = pygame.font.Font(
+            None,
+            22
+        )
+
+        health_label = health_label_font.render(
+            "HEALTH",
+            True,
+            (255, 255, 255)
+        )
+
+        health_label_shadow = health_label_font.render(
+            "HEALTH",
+            True,
+            (0, 0, 0)
+        )
+
+        screen.blit(
+            health_label_shadow,
+            (26, 45)
+        )
+
+        screen.blit(
+            health_label,
+            (25, 44)
+        )
+
         max_health = 3
 
         for i in range(max_health):
 
-            heart_x = 20 + i * 42
-            heart_y = 62
+            heart_x = 25 + i * 40
+            heart_y = 72
 
             # --------------------------------------
             # HEART SHAPE
@@ -1094,29 +1189,206 @@ class Level:
                 )
 
         # ==========================================
-        # SCORE
+        # CHECKPOINT STATUS
         # ==========================================
 
-        score_text = self.font.render(
-            f"Carrots: {self.score}",
-            True,
-            (255, 255, 255)
+        checkpoint_font = pygame.font.Font(
+            None,
+            22
         )
 
-        shadow_text = self.font.render(
-            f"Carrots: {self.score}",
+        if self.current_checkpoint is not None:
+
+            checkpoint_message = "CHECKPOINT: ACTIVE"
+            checkpoint_color = (120, 255, 120)
+
+        else:
+
+            checkpoint_message = "CHECKPOINT: NONE"
+            checkpoint_color = (220, 220, 220)
+
+        checkpoint_text = checkpoint_font.render(
+            checkpoint_message,
+            True,
+            checkpoint_color
+        )
+
+        checkpoint_shadow = checkpoint_font.render(
+            checkpoint_message,
             True,
             (0, 0, 0)
         )
 
+        # Position below the score panel
+        checkpoint_x = screen.get_width() - 165
+        checkpoint_y = 62
+
         screen.blit(
-            shadow_text,
-            (21, 21)
+            checkpoint_shadow,
+            (checkpoint_x + 1, checkpoint_y + 1)
+        )
+
+        screen.blit(
+            checkpoint_text,
+            (checkpoint_x, checkpoint_y)
+        )
+
+        # ==========================================
+        # OBJECTIVE UI
+        # ==========================================
+
+        objective_font = pygame.font.Font(
+            None,
+            22
+        )
+
+        objective_text = objective_font.render(
+            "Objective: Rescue your friends!",
+            True,
+            (255, 255, 255)
+        )
+
+        objective_shadow = objective_font.render(
+            "Objective: Rescue your friends!",
+            True,
+            (0, 0, 0)
+        )
+
+        # Position below checkpoint
+        objective_x = screen.get_width() - 260
+        objective_y = 88
+
+        screen.blit(
+            objective_shadow,
+            (objective_x + 1, objective_y + 1)
+        )
+
+        screen.blit(
+            objective_text,
+            (objective_x, objective_y)
+        )
+
+        # ==========================================
+        # LEVEL INFORMATION UI
+        # ==========================================
+
+        level_font = pygame.font.Font(None, 26)
+
+        level_text = level_font.render(
+            f"Level {self.level_number}: {self.level_name}",
+            True,
+            (255, 255, 255)
+        )
+
+        difficulty_text = level_font.render(
+            f"Difficulty: {self.level_difficulty}",
+            True,
+            (220, 220, 220)
+        )
+
+        # Center of screen
+        level_rect = level_text.get_rect(
+            center=(screen.get_width() // 2, 25)
+        )
+
+        difficulty_rect = difficulty_text.get_rect(
+            center=(screen.get_width() // 2, 50)
+        )
+
+        # Shadows
+        level_shadow = level_font.render(
+            f"Level {self.level_number}: {self.level_name}",
+            True,
+            (0, 0, 0)
+        )
+
+        difficulty_shadow = level_font.render(
+            f"Difficulty: {self.level_difficulty}",
+            True,
+            (0, 0, 0)
+        )
+
+        level_shadow_rect = level_shadow.get_rect(
+            center=(screen.get_width() // 2 + 1, 26)
+        )
+
+        difficulty_shadow_rect = difficulty_shadow.get_rect(
+            center=(screen.get_width() // 2 + 1, 51)
+        )
+
+        screen.blit(level_shadow, level_shadow_rect)
+        screen.blit(level_text, level_rect)
+
+        screen.blit(difficulty_shadow, difficulty_shadow_rect)
+        screen.blit(difficulty_text, difficulty_rect)
+
+        # ==========================================
+        # SCORE UI
+        # ==========================================
+
+        score_panel_width = 150
+        score_panel_height = 42
+
+        score_panel = pygame.Rect(
+            screen.get_width() - score_panel_width - 15,
+            10,
+            score_panel_width,
+            score_panel_height
+        )
+
+        pygame.draw.rect(
+            screen,
+            (30, 30, 30),
+            score_panel
+        )
+
+        pygame.draw.rect(
+            screen,
+            (255, 220, 80),
+            score_panel,
+            2
+        )
+
+        # Star icon
+        star_x = score_panel.x + 22
+        star_y = score_panel.y + 21
+
+        star_points = [
+            (star_x, star_y - 11),
+            (star_x + 4, star_y - 4),
+            (star_x + 12, star_y - 4),
+            (star_x + 6, star_y + 2),
+            (star_x + 9, star_y + 10),
+            (star_x, star_y + 5),
+            (star_x - 9, star_y + 10),
+            (star_x - 6, star_y + 2),
+            (star_x - 12, star_y - 4),
+            (star_x - 4, star_y - 4)
+        ]
+
+        pygame.draw.polygon(
+            screen,
+            (255, 220, 50),
+            star_points
+        )
+
+        # Score text
+        score_text = self.font.render(
+            f"{self.score}",
+            True,
+            (255, 255, 255)
+        )
+
+        score_text_rect = score_text.get_rect(
+            midleft=(
+                score_panel.x + 45,
+                score_panel.centery
+            )
         )
 
         screen.blit(
             score_text,
-            (20, 20)
+            score_text_rect
         )
 
         # ==========================================

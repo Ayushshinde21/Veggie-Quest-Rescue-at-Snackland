@@ -5,7 +5,7 @@ FPS = 60
 
 TITLE = "Veggie Quest: Rescue at Snackland"
 
-WORLD_WIDTH = 10000
+WORLD_WIDTH = 100000
 
 SKY_BLUE = (135, 206, 235)
 GROUND_GREEN = (80, 180, 80)
